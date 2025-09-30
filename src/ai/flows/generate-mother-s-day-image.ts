@@ -35,31 +35,42 @@ const generateMotherSDayImageFlow = ai.defineFlow(
     outputSchema: GenerateMotherSDayImageOutputSchema,
   },
   async input => {
-    const promptText = `Generate an image for the 'Sorteo Día de la Madre' lottery.
+    const promptText = `
+      You are an expert SVG designer. Create an SVG image for a Mother's Day lottery ticket with the following specifications.
+      The SVG should be visually appealing, with a floral, pink, and festive theme suitable for Mother's Day.
 
-The image should include the following information:
-- Four unique random numbers: ${JSON.stringify(input.numbers)}
-- Seller's Name: ${input.sellerName}
-- Buyer's Name: ${input.buyerName}
-- Buyer's Phone Number: ${input.buyerPhoneNumber}
-- Drawing Date: October 28, 2025
+      The SVG must be 500x300 pixels.
 
-The content of the image should be appropriate for the context of a Mother's Day lottery. It should be visually appealing and festive.
+      It must contain the following information, clearly legible:
+      - Title: 'Sorteo Día de la Madre'
+      - Four unique random numbers: ${JSON.stringify(input.numbers)}
+      - Seller's Name: ${input.sellerName}
+      - Buyer's Name: ${input.buyerName}
+      - Buyer's Phone Number: ${input.buyerPhoneNumber}
+      - Drawing Date: October 28, 2025
 
-Please return the generated image as a data URI.
-`;
+      Arrange the information in a clear and aesthetically pleasing way. The numbers should be the most prominent visual element.
+      Use elegant and readable fonts. You can use Google Fonts.
 
-    const {media} = await ai.generate({
-      model: 'googleai/imagen-4.0-fast-generate-001',
+      Do not include any explanation. Only output the raw SVG code starting with <svg> and ending with </svg>.
+    `;
+
+    const {text} = await ai.generate({
       prompt: promptText,
+      config: {
+        // Lower temperature for more predictable SVG code
+        temperature: 0.2,
+      },
     });
+    
+    // Clean the SVG output from the model
+    const svgCode = text.replace(/'''/g, '').replace('svg', '').trim();
 
-    if (!media || !media.url) {
-      throw new Error('Failed to generate image.');
-    }
+    // Convert the SVG string to a Base64 data URI
+    const svgDataUri = `data:image/svg+xml;base64,${Buffer.from(svgCode).toString('base64')}`;
 
     return {
-      image: media.url,
+      image: svgDataUri,
     };
   }
 );
