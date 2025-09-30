@@ -15,6 +15,8 @@ import { PrizeModal } from "@/components/madre-suerte/prize-modal";
 import { Button } from "@/components/ui/button";
 import { Gift } from "lucide-react";
 
+const MAX_TICKETS = 250;
+
 export default function Home() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -45,6 +47,15 @@ export default function Home() {
   }, []);
 
   const handleFormSubmit = async (values: TicketFormValues) => {
+    if (tickets.length >= MAX_TICKETS) {
+      toast({
+        variant: "destructive",
+        title: "Límite alcanzado",
+        description: `Se ha alcanzado el límite de ${MAX_TICKETS} tickets.`,
+      });
+      return;
+    }
+    
     setIsLoading(true);
 
     const generateUniqueNumbers = (): number[] => {
@@ -75,15 +86,18 @@ export default function Home() {
       }
     } while (generatedNumbers.has(numbersKey));
 
+    const nextTicketId = String(tickets.length + 1).padStart(3, '0');
+
     try {
       const result = await generateMotherSDayImage({
         ...values,
         numbers: newNumbers,
+        ticketId: nextTicketId,
       });
 
       if (result.image) {
         const newTicket: Ticket = {
-          id: `ticket-${Date.now()}`,
+          id: nextTicketId,
           ...values,
           numbers: newNumbers,
           imageUrl: result.image,
@@ -122,7 +136,7 @@ export default function Home() {
           <div className="inline-flex items-center gap-3 mb-2">
             <HeartIcon className="w-8 h-8 text-primary" />
             <h1 className="text-4xl md:text-5xl font-headline font-bold tracking-tight text-primary-foreground bg-primary px-4 py-2 rounded-lg shadow-lg">
-              MadreSuerte
+              Madre Suerte - 7mo 1ra
             </h1>
             <HeartIcon className="w-8 h-8 text-primary" />
           </div>

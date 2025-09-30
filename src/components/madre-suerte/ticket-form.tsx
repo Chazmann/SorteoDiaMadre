@@ -44,11 +44,11 @@ export function TicketForm({ onSubmit, isLoading }: TicketFormProps) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
             <TicketIcon className="w-6 h-6 text-primary"/>
-            Generate Your Ticket
+            Generar ticket
         </CardTitle>
         <CardDescription>
-          Enter the details below to generate your unique lottery ticket for the Mother's Day draw.
-        </CardDescription>
+          Ingresar los detalles para generar un ticket de lotería único para el sorteo de la Madre.
+               </CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -58,9 +58,9 @@ export function TicketForm({ onSubmit, isLoading }: TicketFormProps) {
               name="sellerName"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Seller's Name</FormLabel>
+                  <FormLabel>Nombre Vendedor</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., Jane Doe" {...field} />
+                    <Input placeholder="Leandro Chaz" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -71,9 +71,9 @@ export function TicketForm({ onSubmit, isLoading }: TicketFormProps) {
               name="buyerName"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Buyer's Name</FormLabel>
+                  <FormLabel>Comprador</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., John Smith" {...field} />
+                    <Input placeholder="Cosme Fulanito" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -84,9 +84,9 @@ export function TicketForm({ onSubmit, isLoading }: TicketFormProps) {
               name="buyerPhoneNumber"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Buyer's Phone Number</FormLabel>
+                  <FormLabel>Contacto del comprador</FormLabel>
                   <FormControl>
-                    <Input placeholder="+1 234 567 890" {...field} />
+                    <Input placeholder="+541123456789" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -96,10 +96,10 @@ export function TicketForm({ onSubmit, isLoading }: TicketFormProps) {
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generating...
+                  Mezclando los números...
                 </>
               ) : (
-                "Generate My Lucky Ticket"
+                "Generar Ticket"
               )}
             </Button>
           </form>

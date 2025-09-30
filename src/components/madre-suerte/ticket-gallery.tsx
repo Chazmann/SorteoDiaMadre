@@ -13,7 +13,7 @@ export function TicketGallery({ tickets, onCardClick }: TicketGalleryProps) {
   return (
     <section className="mt-16">
       <h2 className="text-3xl font-bold tracking-tight text-center mb-8">
-        Generated Tickets Gallery
+        Galería de tickets generados
       </h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
         {tickets.map((ticket, index) => (
@@ -38,7 +38,7 @@ export function TicketGallery({ tickets, onCardClick }: TicketGalleryProps) {
               </CardHeader>
               <CardContent className="p-0"></CardContent>
               <CardFooter className="flex flex-col items-center pt-4">
-                <p className="text-sm text-muted-foreground">Seller:</p>
+                <p className="text-sm text-muted-foreground">Vendedor:</p>
                 <p className="font-semibold">{ticket.sellerName}</p>
               </CardFooter>
             </Card>

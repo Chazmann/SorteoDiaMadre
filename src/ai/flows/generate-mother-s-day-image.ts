@@ -12,6 +12,7 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const GenerateMotherSDayImageInputSchema = z.object({
+  ticketId: z.string().describe("The sequential ID of the ticket."),
   sellerName: z.string().describe("The name of the seller."),
   buyerName: z.string().describe("The name of the buyer."),
   buyerPhoneNumber: z.string().describe("The phone number of the buyer."),
@@ -58,10 +59,18 @@ const generateSvgTemplate = (input: GenerateMotherSDayImageInput): string => {
             font-weight: 700;
             text-shadow: 1px 1px 3px rgba(0,0,0,0.2);
           }
+          .subtitle {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            margin-top: -10px;
+            padding: 0 20px;
+          }
           .numbers-container {
             display: flex;
             gap: 15px;
-            margin: 15px 0;
+            margin: 5px 0;
           }
           .number {
             background-color: rgba(255, 255, 255, 0.2);
@@ -97,6 +106,10 @@ const generateSvgTemplate = (input: GenerateMotherSDayImageInput): string => {
       <foreignObject width="500" height="300">
         <div xmlns="http://www.w3.org/1999/xhtml" class="container">
           <div class="title">Sorteo Día de la Madre</div>
+          <div class="subtitle">
+            <span>Ticket #${input.ticketId}</span>
+            <span>$5.000</span>
+          </div>
           <div class="numbers-container">
             ${numbersHtml}
           </div>
