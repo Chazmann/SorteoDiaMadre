@@ -31,7 +31,6 @@ export async function generateMotherSDayImage(input: GenerateMotherSDayImageInpu
 const prompt = ai.definePrompt({
   name: 'generateMotherSDayImagePrompt',
   input: {schema: GenerateMotherSDayImageInputSchema},
-  output: {schema: GenerateMotherSDayImageOutputSchema},
   prompt: `Generate an image for the 'Sorteo Día de la Madre' lottery.
 
 The image should include the following information:
