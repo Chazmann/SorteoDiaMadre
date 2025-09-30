@@ -2,21 +2,21 @@
   "placeholderImages": [
     {
       "id": "prize-car",
-      "description": "First prize: A brand new car.",
-      "imageUrl": "https://images.unsplash.com/photo-1578659258511-4a4e7dee7344?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxuZXclMjBjYXJ8ZW58MHx8fHwxNzU5MTkxMzM5fDA&ixlib=rb-4.1.0&q=80&w=1080",
-      "imageHint": "new car"
+      "description": "1° Premio | Freidora De Aire",
+      "imageUrl": "https://images.unsplash.com/photo-1692463146198-8c9ea1c5b4fa?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxBaXIlMjBGcnllcnxlbnwwfHx8fDE3NTkxOTI0NTN8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "Air Fryer"
     },
     {
       "id": "prize-trip",
-      "description": "Second prize: A relaxing vacation trip.",
-      "imageUrl": "https://images.unsplash.com/photo-1672841828459-bc913fdcd995?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHx0cm9waWNhbCUyMGJlYWNofGVufDB8fHx8MTc1OTA2NjE4NHww&ixlib=rb-4.1.0&q=80&w=1080",
-      "imageHint": "tropical beach"
+      "description": "2° Premio | Juego De Sábanas",
+      "imageUrl": "https://images.unsplash.com/photo-1639813806535-b206d3dcf3b6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxiZWRkaW5nJTIwc2V0fGVufDB8fHx8MTc1OTE5MjQ1Mnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "bedding set"
     },
     {
       "id": "prize-tv",
-      "description": "Third prize: A 55-inch Smart TV.",
-      "imageUrl": "https://images.unsplash.com/photo-1647804860011-3d88926953e2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxsaXZpbmclMjByb29tJTIwdGVsZXZpc2lvbnxlbnwwfHx8fDE3NTkxNTk0MTd8MA&ixlib=rb-4.1.0&q=80&w=1080",
-      "imageHint": "living room television"
+      "description": "3° Premio | Libro de Chistes",
+      "imageUrl": "https://images.unsplash.com/photo-1594248597223-4056ed2bc1fd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxqb2tlJTIwYm9va3xlbnwwfHx8fDE3NTkxOTI0NTN8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "joke book"
     }
   ]
 }
