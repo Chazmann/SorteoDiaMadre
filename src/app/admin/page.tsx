@@ -42,8 +42,9 @@ export default function AdminPage() {
   const handleExportPDF = () => {
     const doc = new jsPDF();
     doc.autoTable({
-      head: [['Vendido por', 'Comprador', 'Teléfono', 'Números']],
+      head: [['Ticket #', 'Vendido por', 'Comprador', 'Teléfono', 'Números']],
       body: tickets.map(ticket => [
+        ticket.id,
         ticket.sellerName,
         ticket.buyerName,
         ticket.buyerPhoneNumber,
@@ -67,7 +68,7 @@ export default function AdminPage() {
     }
   };
   
-  const sortedTickets = [...tickets].sort((a,b) => a.numbers[0] - b.numbers[0] || a.numbers[1] - b.numbers[1]);
+  const sortedTickets = [...tickets].sort((a,b) => parseInt(a.id) - parseInt(b.id));
 
 
   return (
@@ -105,6 +106,7 @@ export default function AdminPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead>Ticket #</TableHead>
                       <TableHead>Vendido por</TableHead>
                       <TableHead>Comprador</TableHead>
                       <TableHead>Teléfono</TableHead>
@@ -114,6 +116,7 @@ export default function AdminPage() {
                   <TableBody>
                     {sortedTickets.map(ticket => (
                       <TableRow key={ticket.id}>
+                        <TableCell className="font-semibold">{ticket.id}</TableCell>
                         <TableCell>{ticket.sellerName}</TableCell>
                         <TableCell>{ticket.buyerName}</TableCell>
                         <TableCell>{ticket.buyerPhoneNumber}</TableCell>
