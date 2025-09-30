@@ -14,7 +14,13 @@ import { TicketDetailsModal } from "@/components/madre-suerte/ticket-details-mod
 import { HeartIcon } from "@/components/icons";
 import { PrizeModal } from "@/components/madre-suerte/prize-modal";
 import { Button } from "@/components/ui/button";
-import { Gift } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Gift, Menu, Home as HomeIcon, Shield } from "lucide-react";
 
 const MAX_TICKETS = 250;
 
@@ -132,6 +138,30 @@ export default function Home() {
 
   return (
     <>
+      <div className="absolute top-4 right-4">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="icon">
+              <Menu className="h-6 w-6" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem asChild>
+              <Link href="/">
+                <HomeIcon className="mr-2 h-4 w-4" />
+                <span>Inicio</span>
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/admin">
+                <Shield className="mr-2 h-4 w-4" />
+                <span>Panel de Administración</span>
+              </Link>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
       <main className="container mx-auto px-4 py-8 md:py-12">
         <header className="text-center mb-12">
           <div className="inline-flex items-center gap-3 mb-2">
