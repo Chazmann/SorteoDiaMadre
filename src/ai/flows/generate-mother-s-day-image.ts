@@ -53,9 +53,11 @@ const generateMotherSDayImageFlow = ai.defineFlow(
     outputSchema: GenerateMotherSDayImageOutputSchema,
   },
   async input => {
+    const response = await motherSdayImagePrompt(input);
+
     const {media} = await ai.generate({
       model: 'googleai/imagen-4.0-fast-generate-001',
-      prompt: (await motherSdayImagePrompt(input)).text,
+      prompt: response.text,
     });
 
     if (!media || !media.url) {
