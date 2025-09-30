@@ -3,6 +3,7 @@
 
 import * as React from "react";
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
 import type { Ticket } from "@/lib/types";
 import { generateMotherSDayImage } from "@/ai/flows/generate-mother-s-day-image";
@@ -106,8 +107,8 @@ export default function Home() {
         setTickets(prevTickets => [newTicket, ...prevTickets]);
         setGeneratedNumbers(prev => new Set(prev).add(numbersKey));
         toast({
-          title: "Success!",
-          description: "Your lucky ticket has been generated.",
+          title: "Suerte!",
+          description: "Tu ticket de la suerte ha sido generado.",
         });
       } else {
         throw new Error("Image generation failed.");
@@ -171,6 +172,7 @@ export default function Home() {
       </main>
       <footer className="text-center p-4 text-muted-foreground">
         <p>&copy; {new Date().getFullYear()} MadreSuerte. All rights reserved.</p>
+        <Link href="/admin" className="text-sm text-primary hover:underline">Panel de Administración</Link>
       </footer>
       <TicketDetailsModal
         ticket={selectedTicket}

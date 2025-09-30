@@ -17,9 +17,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Loader2, Ticket as TicketIcon } from "lucide-react";
 
 const formSchema = z.object({
-  sellerName: z.string().min(2, "Seller name must be at least 2 characters."),
-  buyerName: z.string().min(2, "Buyer name must be at least 2 characters."),
-  buyerPhoneNumber: z.string().regex(/^\+?[0-9\s-]{7,15}$/, "Please enter a valid phone number."),
+  sellerName: z.string().min(2, "El nombre del vendedor debe tener al menos 2 caracteres."),
+  buyerName: z.string().min(2, "El nombre del comprador debe tener al menos 2 caracteres."),
+  buyerPhoneNumber: z.string().regex(/^\+?[0-9\s-]{7,15}$/, "INGRESAR UN NÚMERO VÁLIDO."),
 });
 
 export type TicketFormValues = z.infer<typeof formSchema>;
