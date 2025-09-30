@@ -28,24 +28,6 @@ export async function generateMotherSDayImage(input: GenerateMotherSDayImageInpu
   return generateMotherSDayImageFlow(input);
 }
 
-const motherSdayImagePrompt = ai.definePrompt({
-  name: 'generateMotherSDayImagePrompt',
-  input: {schema: GenerateMotherSDayImageInputSchema},
-  prompt: `Generate an image for the 'Sorteo Día de la Madre' lottery.
-
-The image should include the following information:
-- Four unique random numbers: {{numbers}}
-- Seller's Name: {{sellerName}}
-- Buyer's Name: {{buyerName}}
-- Buyer's Phone Number: {{buyerPhoneNumber}}
-- Drawing Date: October 28, 2025
-
-The content of the image should be appropriate for the context of a Mother's Day lottery. It should be visually appealing and festive.
-
-Please return the generated image as a data URI.
-`,
-});
-
 const generateMotherSDayImageFlow = ai.defineFlow(
   {
     name: 'generateMotherSDayImageFlow',
@@ -53,11 +35,23 @@ const generateMotherSDayImageFlow = ai.defineFlow(
     outputSchema: GenerateMotherSDayImageOutputSchema,
   },
   async input => {
-    const response = await motherSdayImagePrompt(input);
+    const promptText = `Generate an image for the 'Sorteo Día de la Madre' lottery.
+
+The image should include the following information:
+- Four unique random numbers: ${JSON.stringify(input.numbers)}
+- Seller's Name: ${input.sellerName}
+- Buyer's Name: ${input.buyerName}
+- Buyer's Phone Number: ${input.buyerPhoneNumber}
+- Drawing Date: October 28, 2025
+
+The content of the image should be appropriate for the context of a Mother's Day lottery. It should be visually appealing and festive.
+
+Please return the generated image as a data URI.
+`;
 
     const {media} = await ai.generate({
       model: 'googleai/imagen-4.0-fast-generate-001',
-      prompt: response.text,
+      prompt: promptText,
     });
 
     if (!media || !media.url) {
