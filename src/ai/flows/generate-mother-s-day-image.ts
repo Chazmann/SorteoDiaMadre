@@ -41,6 +41,8 @@ const generateMotherSDayImageFlow = ai.defineFlow(
 
       The SVG must be 500x300 pixels.
 
+      Use a linear gradient background from #F8BBD0 to #E91E63.
+
       It must contain the following information, clearly legible:
       - Title: 'Sorteo Día de la Madre'
       - Four unique random numbers: ${JSON.stringify(input.numbers)}
@@ -50,7 +52,7 @@ const generateMotherSDayImageFlow = ai.defineFlow(
       - Drawing Date: October 28, 2025
 
       Arrange the information in a clear and aesthetically pleasing way. The numbers should be the most prominent visual element.
-      Use elegant and readable fonts. You can use Google Fonts.
+      Use elegant and readable fonts. You can use Google Fonts. The text color should be white for better contrast against the gradient background.
 
       Do not include any explanation. Only output the raw SVG code starting with <svg> and ending with </svg>.
     `;
@@ -58,15 +60,12 @@ const generateMotherSDayImageFlow = ai.defineFlow(
     const {text} = await ai.generate({
       prompt: promptText,
       config: {
-        // Lower temperature for more predictable SVG code
         temperature: 0.2,
       },
     });
-    
-    // Clean the SVG output from the model
-    const svgCode = text.replace(/'''/g, '').replace('svg', '').trim();
 
-    // Convert the SVG string to a Base64 data URI
+    const svgCode = text.replace(/```svg/g, '').replace(/```/g, '').trim();
+    
     const svgDataUri = `data:image/svg+xml;base64,${Buffer.from(svgCode).toString('base64')}`;
 
     return {
