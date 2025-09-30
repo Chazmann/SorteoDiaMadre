@@ -1,3 +1,4 @@
+
 "use client";
 
 import Image from "next/image";
@@ -17,7 +18,7 @@ export function PrizeList() {
       </h2>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {prizes.map((prize, index) => (
-          <Card key={prize.id} className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
+          <Card key={prize.id} className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 bg-card">
             <CardHeader>
               <CardTitle className="text-accent">{prizeTitles[index] || `Premio ${index + 1}`}</CardTitle>
             </CardHeader>
@@ -31,7 +32,7 @@ export function PrizeList() {
               />
             </div>
             <CardContent className="p-4">
-              <CardDescription className="text-lg text-center font-semibold">{prize.description}</CardDescription>
+              <CardDescription className="text-lg text-center font-semibold text-card-foreground">{prize.description}</CardDescription>
             </CardContent>
           </Card>
         ))}

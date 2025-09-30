@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -10,14 +11,38 @@ import { TicketForm, type TicketFormValues } from "@/components/madre-suerte/tic
 import { TicketGallery } from "@/components/madre-suerte/ticket-gallery";
 import { TicketDetailsModal } from "@/components/madre-suerte/ticket-details-modal";
 import { HeartIcon } from "@/components/icons";
+import { PrizeModal } from "@/components/madre-suerte/prize-modal";
+import { Button } from "@/components/ui/button";
+import { Gift } from "lucide-react";
 
 export default function Home() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [generatedNumbers, setGeneratedNumbers] = useState(new Set<string>());
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
+  const [isPrizeModalOpen, setIsPrizeModalOpen] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    // Save tickets to localStorage whenever they change
+    if (tickets.length > 0) {
+      localStorage.setItem("tickets", JSON.stringify(tickets));
+    }
+  }, [tickets]);
+
+  useEffect(() => {
+    // Load tickets from localStorage on initial render
+    const savedTickets = localStorage.getItem("tickets");
+    if (savedTickets) {
+      const parsedTickets: Ticket[] = JSON.parse(savedTickets);
+      setTickets(parsedTickets);
+      const numbersKeys = new Set(
+        parsedTickets.map(t => [...t.numbers].sort((a,b) => a-b).join(','))
+      );
+      setGeneratedNumbers(numbersKeys);
+    }
+  }, []);
 
   const handleFormSubmit = async (values: TicketFormValues) => {
     setIsLoading(true);
@@ -87,7 +112,7 @@ export default function Home() {
 
   const handleCardClick = (ticket: Ticket) => {
     setSelectedTicket(ticket);
-    setIsModalOpen(true);
+    setIsTicketModalOpen(true);
   };
 
   return (
@@ -106,7 +131,19 @@ export default function Home() {
           </p>
         </header>
 
-        <PrizeList />
+        {/* Hidden on mobile, visible on desktop */}
+        <div className="hidden md:block">
+          <PrizeList />
+        </div>
+
+        {/* Visible only on mobile */}
+        <div className="md:hidden text-center mb-8">
+            <Button onClick={() => setIsPrizeModalOpen(true)}>
+                <Gift className="mr-2"/>
+                Ver Premios
+            </Button>
+        </div>
+
 
         <section className="mt-12">
            <div className="max-w-lg mx-auto">
@@ -123,8 +160,12 @@ export default function Home() {
       </footer>
       <TicketDetailsModal
         ticket={selectedTicket}
-        isOpen={isModalOpen}
-        onOpenChange={setIsModalOpen}
+        isOpen={isTicketModalOpen}
+        onOpenChange={setIsTicketModalOpen}
+      />
+      <PrizeModal 
+        isOpen={isPrizeModalOpen}
+        onOpenChange={setIsPrizeModalOpen}
       />
     </>
   );

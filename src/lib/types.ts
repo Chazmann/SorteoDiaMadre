@@ -1,3 +1,4 @@
+
 export interface Ticket {
   id: string;
   sellerName: string;
@@ -6,4 +7,11 @@ export interface Ticket {
   numbers: number[];
   imageUrl: string;
   drawingDate: string;
+}
+
+export interface Prize {
+  id: string;
+  description: string;
+  imageUrl: string;
+  imageHint: string;
 }
