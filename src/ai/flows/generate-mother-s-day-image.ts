@@ -28,6 +28,107 @@ export async function generateMotherSDayImage(input: GenerateMotherSDayImageInpu
   return generateMotherSDayImageFlow(input);
 }
 
+// This function now uses a static SVG template and injects the data into it.
+// This is much faster than generating an SVG from scratch with an LLM on every call.
+const generateSvgTemplate = (input: GenerateMotherSDayImageInput): string => {
+  const numbersHtml = input.numbers
+    .map(num => `<div class="number">${String(num).padStart(3, '0')}</div>`)
+    .join('');
+
+  return `
+    <svg width="500" height="300" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+      <defs>
+        <style>
+          @import url('https://fonts.googleapis.com/css2?family=Belleza&amp;family=Playfair+Display:wght@700&amp;display=swap');
+          .container {
+            font-family: 'Belleza', sans-serif;
+            color: white;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            box-sizing: border-box;
+          }
+          .title {
+            font-family: 'Playfair Display', serif;
+            font-size: 28px;
+            font-weight: 700;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.2);
+          }
+          .numbers-container {
+            display: flex;
+            gap: 15px;
+            margin: 15px 0;
+          }
+          .number {
+            background-color: rgba(255, 255, 255, 0.2);
+            border: 1px solid white;
+            border-radius: 8px;
+            width: 70px;
+            height: 70px;
+            font-size: 36px;
+            font-weight: bold;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+          }
+          .details {
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5px 15px;
+            font-size: 13px;
+          }
+          .detail-item {
+            display: flex;
+            flex-direction: column;
+          }
+          .detail-label {
+            font-size: 11px;
+            opacity: 0.8;
+          }
+        </style>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#grad)" />
+      <foreignObject width="500" height="300">
+        <div xmlns="http://www.w3.org/1999/xhtml" class="container">
+          <div class="title">Sorteo Día de la Madre</div>
+          <div class="numbers-container">
+            ${numbersHtml}
+          </div>
+          <div class="details">
+            <div class="detail-item">
+              <span class="detail-label">Vendido por</span>
+              <span>${input.sellerName}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Comprador</span>
+              <span>${input.buyerName}</span>
+            </div>
+             <div class="detail-item">
+              <span class="detail-label">Fecha del Sorteo</span>
+              <span>Octubre 28, 2025</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Teléfono</span>
+              <span>${input.buyerPhoneNumber}</span>
+            </div>
+          </div>
+        </div>
+      </foreignObject>
+       <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" style="stop-color:#F8BBD0;stop-opacity:1" />
+        <stop offset="100%" style="stop-color:#E91E63;stop-opacity:1" />
+      </linearGradient>
+    </svg>
+  `;
+};
+
+
 const generateMotherSDayImageFlow = ai.defineFlow(
   {
     name: 'generateMotherSDayImageFlow',
@@ -35,37 +136,10 @@ const generateMotherSDayImageFlow = ai.defineFlow(
     outputSchema: GenerateMotherSDayImageOutputSchema,
   },
   async input => {
-    const promptText = `
-      You are an expert SVG designer. Create an SVG image for a Mother's Day lottery ticket with the following specifications.
-      The SVG should be visually appealing, with a floral, pink, and festive theme suitable for Mother's Day.
-
-      The SVG must be 500x300 pixels.
-
-      Use a linear gradient background from #F8BBD0 to #E91E63.
-
-      It must contain the following information, clearly legible:
-      - Title: 'Sorteo Día de la Madre'
-      - Four unique random numbers: ${JSON.stringify(input.numbers)}
-      - Seller's Name: ${input.sellerName}
-      - Buyer's Name: ${input.buyerName}
-      - Buyer's Phone Number: ${input.buyerPhoneNumber}
-      - Drawing Date: October 28, 2025
-
-      Arrange the information in a clear and aesthetically pleasing way. The numbers should be the most prominent visual element.
-      Use elegant and readable fonts. You can use Google Fonts. The text color should be white for better contrast against the gradient background.
-
-      Do not include any explanation. Only output the raw SVG code starting with <svg> and ending with </svg>.
-    `;
-
-    const {text} = await ai.generate({
-      prompt: promptText,
-      config: {
-        temperature: 0.2,
-      },
-    });
-
-    const svgCode = text.replace(/```svg/g, '').replace(/```/g, '').trim();
+    // Generate the SVG code using the template function.
+    const svgCode = generateSvgTemplate(input);
     
+    // Encode the SVG code to a Base64 data URI.
     const svgDataUri = `data:image/svg+xml;base64,${Buffer.from(svgCode).toString('base64')}`;
 
     return {
