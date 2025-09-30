@@ -1,3 +1,4 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -14,7 +15,8 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Ticket as TicketIcon } from "lucide-react";
+import { Loader2, Ticket as TicketIcon, Dices } from "lucide-react";
+import * as React from 'react';
 
 const formSchema = z.object({
   sellerName: z.string().min(2, "El nombre del vendedor debe tener al menos 2 caracteres."),
@@ -25,11 +27,14 @@ const formSchema = z.object({
 export type TicketFormValues = z.infer<typeof formSchema>;
 
 interface TicketFormProps {
-  onSubmit: (values: TicketFormValues) => void;
+  onSubmit: (values: TicketFormValues, numbers: number[]) => void;
   isLoading: boolean;
+  generateUniqueNumbers: () => number[];
 }
 
-export function TicketForm({ onSubmit, isLoading }: TicketFormProps) {
+export function TicketForm({ onSubmit, isLoading, generateUniqueNumbers }: TicketFormProps) {
+  const [generatedNumbers, setGeneratedNumbers] = React.useState<number[] | null>(null);
+  
   const form = useForm<TicketFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -38,6 +43,19 @@ export function TicketForm({ onSubmit, isLoading }: TicketFormProps) {
       buyerPhoneNumber: "",
     },
   });
+
+  const handleGenerateNumbers = () => {
+    const newNumbers = generateUniqueNumbers();
+    setGeneratedNumbers(newNumbers);
+  };
+  
+  const handleFormSubmit = (values: TicketFormValues) => {
+    if (generatedNumbers) {
+      onSubmit(values, generatedNumbers);
+      setGeneratedNumbers(null);
+      form.reset();
+    }
+  };
 
   return (
     <Card className="shadow-lg">
@@ -52,7 +70,7 @@ export function TicketForm({ onSubmit, isLoading }: TicketFormProps) {
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
             <FormField
               control={form.control}
               name="sellerName"
@@ -92,11 +110,30 @@ export function TicketForm({ onSubmit, isLoading }: TicketFormProps) {
                 </FormItem>
               )}
             />
-            <Button type="submit" disabled={isLoading} className="w-full" size="lg">
+            
+            {generatedNumbers && (
+              <div className="p-4 bg-muted rounded-lg text-center">
+                <p className="text-sm text-muted-foreground mb-2">Números de la suerte generados:</p>
+                <div className="flex justify-center items-baseline gap-2 flex-wrap">
+                  {generatedNumbers.map((num, i) => (
+                    <span key={i} className="font-mono text-2xl bg-primary text-primary-foreground px-3 py-1.5 rounded-md shadow-md">
+                      {String(num).padStart(3, '0')}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <Button type="button" variant="secondary" onClick={handleGenerateNumbers} className="w-full">
+              <Dices className="mr-2" />
+              {generatedNumbers ? "Generar otros números" : "Generar números de la suerte"}
+            </Button>
+            
+            <Button type="submit" disabled={isLoading || !generatedNumbers} className="w-full" size="lg">
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Mezclando los números...
+                  Creando su ticket...
                 </>
               ) : (
                 "Generar Ticket"

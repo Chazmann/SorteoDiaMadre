@@ -53,7 +53,36 @@ export default function Home() {
     }
   }, []);
 
-  const handleFormSubmit = async (values: TicketFormValues) => {
+  const generateUniqueNumbers = (): number[] => {
+      let newNumbers: number[];
+      let numbersKey: string;
+      let attempts = 0;
+      const MAX_ATTEMPTS = 50; // Increased attempts
+
+      do {
+        const numbers = new Set<number>();
+        while (numbers.size < 4) {
+          numbers.add(Math.floor(Math.random() * 1000));
+        }
+        newNumbers = Array.from(numbers);
+        numbersKey = [...newNumbers].sort((a, b) => a - b).join(',');
+        attempts++;
+        if (attempts > MAX_ATTEMPTS) {
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: "No se pudieron generar números únicos. Hay muchos tickets generados. Intenta de nuevo.",
+          });
+          // Return an empty array or throw an error to signify failure
+          throw new Error("Could not generate a unique set of numbers.");
+        }
+      } while (generatedNumbers.has(numbersKey));
+
+      return newNumbers;
+  };
+
+
+  const handleFormSubmit = async (values: TicketFormValues, newNumbers: number[]) => {
     if (tickets.length >= MAX_TICKETS) {
       toast({
         variant: "destructive",
@@ -65,37 +94,20 @@ export default function Home() {
     
     setIsLoading(true);
 
-    const generateUniqueNumbers = (): number[] => {
-      const numbers = new Set<number>();
-      while (numbers.size < 4) {
-        numbers.add(Math.floor(Math.random() * 1000));
-      }
-      return Array.from(numbers);
-    };
-
-    let newNumbers: number[];
-    let numbersKey: string;
-    let attempts = 0;
-    const MAX_ATTEMPTS = 20;
-
-    do {
-      newNumbers = generateUniqueNumbers();
-      numbersKey = [...newNumbers].sort((a, b) => a - b).join(',');
-      attempts++;
-      if (attempts > MAX_ATTEMPTS) {
+    try {
+      const numbersKey = [...newNumbers].sort((a, b) => a - b).join(',');
+      if (generatedNumbers.has(numbersKey)) {
         toast({
           variant: "destructive",
-          title: "Error",
-          description: "Could not generate a unique set of numbers. Please try again.",
+          title: "Números Duplicados",
+          description: "Estos números ya han sido generados. Por favor, genera un nuevo set.",
         });
         setIsLoading(false);
         return;
       }
-    } while (generatedNumbers.has(numbersKey));
+      
+      const nextTicketId = String(tickets.length + 1).padStart(3, '0');
 
-    const nextTicketId = String(tickets.length + 1).padStart(3, '0');
-
-    try {
       const result = await generateMotherSDayImage({
         ...values,
         numbers: newNumbers,
@@ -113,7 +125,7 @@ export default function Home() {
         setTickets(prevTickets => [newTicket, ...prevTickets]);
         setGeneratedNumbers(prev => new Set(prev).add(numbersKey));
         toast({
-          title: "Suerte!",
+          title: "¡Suerte!",
           description: "Tu ticket de la suerte ha sido generado.",
         });
       } else {
@@ -123,8 +135,8 @@ export default function Home() {
       console.error(error);
       toast({
         variant: "destructive",
-        title: "Generation Failed",
-        description: "There was an error generating your image. Please try again.",
+        title: "Falló la Generación",
+        description: "Hubo un error al generar tu imagen. Por favor, intenta de nuevo.",
       });
     } finally {
       setIsLoading(false);
@@ -192,7 +204,11 @@ export default function Home() {
 
         <section className="mt-12">
            <div className="max-w-lg mx-auto">
-            <TicketForm onSubmit={handleFormSubmit} isLoading={isLoading} />
+            <TicketForm 
+              onSubmit={handleFormSubmit} 
+              isLoading={isLoading} 
+              generateUniqueNumbers={generateUniqueNumbers}
+            />
            </div>
         </section>
 
