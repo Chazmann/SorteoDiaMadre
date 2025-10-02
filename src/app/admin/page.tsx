@@ -22,6 +22,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Skeleton } from '@/components/ui/skeleton';
 
 
 const GENERIC_PRIZE_IMAGE_URL = "/generic-prize.jpg";
@@ -37,6 +38,48 @@ const jsPDF =
 
 if (typeof window !== 'undefined') {
   require('jspdf-autotable');
+}
+
+interface AdminPrizeCardProps {
+    prize: Prize;
+    onEdit: (prize: Prize) => void;
+}
+
+function AdminPrizeCard({ prize, onEdit }: AdminPrizeCardProps) {
+    const [imageSrc, setImageSrc] = useState<string | null>(null);
+
+    useEffect(() => {
+        // Set the image source on the client side to avoid hydration issues with Data URLs
+        setImageSrc(prize.image_url || GENERIC_PRIZE_IMAGE_URL);
+    }, [prize.image_url]);
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex justify-between items-center">
+                    {`Premio ${prize.prize_order}`}
+                    <Button variant="ghost" size="icon" onClick={() => onEdit(prize)}>
+                        <Pencil className="w-4 h-4"/>
+                    </Button>
+                </CardTitle>
+            </CardHeader>
+            <CardContent>
+                <div className="aspect-video relative w-full">
+                    {!imageSrc ? (
+                        <Skeleton className="h-full w-full" />
+                    ) : (
+                        <img
+                            src={imageSrc}
+                            alt={prize.title}
+                            className="rounded-md mb-4 w-full h-auto object-cover aspect-video"
+                        />
+                    )}
+                </div>
+                <p className="font-semibold">Título:</p>
+                <p>{prize.title}</p>
+            </CardContent>
+        </Card>
+    );
 }
 
 export default function AdminPage() {
@@ -119,8 +162,10 @@ export default function AdminPage() {
       setIsSaving(false);
       
       if (result.success) {
-        const updatedPrize = { ...editingPrize, image_url: imageUrlToSave };
-        setPrizes(prizes.map(p => (p.id === editingPrize.id ? updatedPrize : p)));
+        // Fetch prizes again to get the latest data including the updated one
+        const updatedPrizes = await getPrizes();
+        setPrizes(updatedPrizes);
+        
         toast({ title: "Éxito", description: result.message });
         setEditingPrize(null);
         setSelectedFile(null);
@@ -243,21 +288,7 @@ export default function AdminPage() {
              <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {prizes.map(prize => (
-                        <Card key={prize.id}>
-                            <CardHeader>
-                                <CardTitle className="flex justify-between items-center">
-                                    {`Premio ${prize.prize_order}`}
-                                    <Button variant="ghost" size="icon" onClick={() => handleEditPrize(prize)}>
-                                        <Pencil className="w-4 h-4"/>
-                                    </Button>
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <img src={prize.image_url || GENERIC_PRIZE_IMAGE_URL} alt={prize.title} className="rounded-md mb-4 w-full h-auto object-cover aspect-video"/>
-                                <p className="font-semibold">Título:</p>
-                                <p>{prize.title}</p>
-                            </CardContent>
-                        </Card>
+                       <AdminPrizeCard key={prize.id} prize={prize} onEdit={handleEditPrize} />
                     ))}
                 </div>
              </CardContent>
@@ -355,7 +386,5 @@ if (styleSheet) {
     styleSheet.innerText = adminPageStyle;
     document.head.appendChild(styleSheet);
 }
-
-    
 
     

@@ -1,7 +1,6 @@
 
 "use client";
 
-import Image from "next/image";
 import { useEffect, useState } from "react";
 import { Prize } from "@/lib/types";
 import { getPrizes } from "@/app/actions/prize-actions";
@@ -36,11 +35,6 @@ function PrizeCard({ prize }: PrizeCardProps) {
             src={imageSrc}
             alt={prize.title}
             className="w-full h-full object-cover"
-            onError={(e) => {
-              if ((e.target as HTMLImageElement).src !== GENERIC_PRIZE_IMAGE_URL) {
-                (e.target as HTMLImageElement).src = GENERIC_PRIZE_IMAGE_URL;
-              }
-            }}
           />
         )}
       </div>
@@ -108,3 +102,5 @@ export function PrizeList() {
     </section>
   );
 }
+
+    
