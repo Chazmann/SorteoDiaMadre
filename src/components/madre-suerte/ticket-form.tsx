@@ -41,7 +41,7 @@ interface TicketFormProps {
     buyerName: string;
     buyerPhoneNumber: string;
     paymentMethod: string;
-  }, numbers: number[]) => void;
+  }, numbers: number[]) => Promise<boolean>; // Returns a promise with a boolean indicating success
   isLoading: boolean;
   generateUniqueNumbers: () => number[];
   sellers: Seller[];
@@ -70,16 +70,24 @@ export function TicketForm({ onSubmit, isLoading, generateUniqueNumbers, sellers
     }
   };
   
-  const handleFormSubmit = (values: TicketFormValues) => {
+  const handleFormSubmit = async (values: TicketFormValues) => {
     if (generatedNumbers) {
-      onSubmit({ 
+      const success = await onSubmit({ 
           buyerName: values.buyerName,
           buyerPhoneNumber: values.buyerPhoneNumber,
           sellerId: parseInt(values.sellerId),
           paymentMethod: values.paymentMethod,
       }, generatedNumbers);
-      setGeneratedNumbers(null);
-      form.reset();
+      
+      // Only reset the form and numbers if the submission was successful
+      if (success) {
+        setGeneratedNumbers(null);
+        form.reset();
+      } else {
+        // If submission failed (e.g., duplicate numbers), just clear the generated numbers
+        // so the user has to generate a new set. The form fields remain filled.
+        setGeneratedNumbers(null);
+      }
     }
   };
 

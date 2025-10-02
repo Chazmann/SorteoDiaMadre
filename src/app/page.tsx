@@ -93,14 +93,14 @@ export default function Home() {
     return Array.from(newNumbers);
   };
 
-  const handleFormSubmit = async (values: TicketFormSubmitValues, newNumbers: number[]) => {
+  const handleFormSubmit = async (values: TicketFormSubmitValues, newNumbers: number[]): Promise<boolean> => {
     if (tickets.length >= MAX_TICKETS) {
       toast({
         variant: "destructive",
         title: "Límite alcanzado",
         description: `Se ha alcanzado el límite de ${MAX_TICKETS} tickets.`,
       });
-      return;
+      return false;
     }
 
     setIsLoading(true);
@@ -146,17 +146,19 @@ export default function Home() {
           title: "¡Suerte!",
           description: "Tu ticket de la suerte ha sido generado.",
         });
+        return true; // Success
       } else {
         throw new Error("Image generation failed.");
       }
     } catch (error: any) {
       console.error(error);
-      const isDuplicateError = error.code === 'ER_DUP_ENTRY' || error.message?.includes('Duplicate entry');
+      const isDuplicateError = error.code === 'ER_DUP_ENTRY' || error.message?.includes('Duplicate entry') || error.message?.includes('UNIQUE constraint failed');
       toast({
         variant: "destructive",
         title: isDuplicateError ? "Número Duplicado" : "Falló la Creación del Ticket",
         description: isDuplicateError ? "Uno de los números generados ya fue tomado. Por favor, genera una nueva combinación." : "Hubo un error al guardar tu ticket en la base de datos. Intenta de nuevo.",
       });
+      return false; // Failure
     } finally {
       setIsLoading(false);
     }
