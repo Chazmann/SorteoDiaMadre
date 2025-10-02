@@ -16,7 +16,7 @@ import { getPrizes, updatePrize } from '@/app/actions/prize-actions';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 
-const GENERIC_PRIZE_IMAGE_URL = "/images/generic-prize.jpg";
+const GENERIC_PRIZE_IMAGE_URL = "/generic-prize.jpg";
 
 // Mock implementation of jsPDF and autoTable for client-side rendering
 const jsPDF =
