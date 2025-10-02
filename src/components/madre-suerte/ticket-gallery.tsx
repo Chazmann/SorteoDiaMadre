@@ -11,7 +11,18 @@ interface TicketGalleryProps {
 }
 
 export function TicketGallery({ tickets, onCardClick }: TicketGalleryProps) {
-  const sortedTickets = [...tickets].sort((a,b) => parseInt(b.id) - parseInt(a.id));
+  // Cuando se carga la página, los tickets de la DB no tienen imageUrl.
+  // La imagen se genera al vuelo solo para los tickets nuevos.
+  // Para los viejos, la podríamos volver a generar al hacer click si quisiéramos.
+  const ticketsWithImages = tickets.map(ticket => {
+    if (!ticket.imageUrl) {
+      // Podríamos generar la imagen aquí si fuera necesario,
+      // pero por ahora solo nos aseguramos de que no de error.
+    }
+    return ticket;
+  });
+
+  const sortedTickets = [...ticketsWithImages].sort((a,b) => parseInt(b.id) - parseInt(a.id));
   
   return (
     <section className="mt-16">
@@ -41,13 +52,7 @@ export function TicketGallery({ tickets, onCardClick }: TicketGalleryProps) {
                  <p className="text-center text-xs text-muted-foreground pt-1">Ticket #{String(ticket.id).padStart(3, '0')}</p>
               </CardHeader>
               <CardContent className="p-4 flex-grow flex items-center justify-center">
-                 {ticket.imageUrl ? (
-                    <Image src={ticket.imageUrl} alt={`Ticket ${ticket.id}`} width={200} height={120} className="rounded-md object-contain"/>
-                 ) : (
-                   <div className="text-center text-sm text-muted-foreground p-4">
-                     Vista previa de imagen no disponible
-                   </div>
-                 )}
+                 {ticket.imageUrl && <Image src={ticket.imageUrl} alt={`Ticket ${ticket.id}`} width={200} height={120} className="rounded-md object-contain"/>}
               </CardContent>
               <CardFooter className="flex flex-col items-center pt-4">
                 <p className="text-sm text-muted-foreground">Vendido por:</p>

@@ -32,18 +32,12 @@ export function TicketDetailsModal({ ticket, isOpen, onOpenChange }: TicketDetai
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="relative aspect-video w-full rounded-lg overflow-hidden border">
-             {ticket.imageUrl ? (
-                <Image
-                    src={ticket.imageUrl}
-                    alt="Generated lottery ticket for Mother's Day"
-                    fill
-                    className="object-contain"
-                />
-              ) : (
-                <div className="flex items-center justify-center h-full bg-muted text-muted-foreground text-sm">
-                  Vista previa de imagen no disponible.
-                </div>
-              )}
+            <Image
+                src={ticket.imageUrl}
+                alt="Generated lottery ticket for Mother's Day"
+                fill
+                className="object-contain"
+            />
           </div>
           <div className="text-center font-bold text-lg">
             Ticket # {String(ticket.id).padStart(3, '0')}
