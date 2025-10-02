@@ -214,7 +214,7 @@ export default function AdminPage() {
                 <CardHeader>
                     <CardTitle>Editar Premio</CardTitle>
                     <CardDescription>Modifica la información del premio seleccionado.</CardDescription>
-                </Header>
+                </CardHeader>
                 <CardContent className="space-y-4">
                      <div>
                         <label className="text-sm font-medium">Título del Premio</label>
@@ -290,3 +290,5 @@ if (styleSheet) {
     styleSheet.innerText = adminPageStyle;
     document.head.appendChild(styleSheet);
 }
+
+    
