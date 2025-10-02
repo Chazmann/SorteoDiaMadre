@@ -22,5 +22,8 @@ export interface Prize {
 export interface Seller {
     id: number;
     name: string;
-    password_hash?: string;
+    username: string;
+    created_at: string;
+    password_hash: string;
 }
+

@@ -16,27 +16,19 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { getSellers, validateSellerCredentials } from '@/app/actions/seller-actions';
+import { validateSellerCredentials } from '@/app/actions/seller-actions';
 import { Seller } from '@/lib/types';
 import { Loader2, LogIn, Eye, EyeOff } from 'lucide-react';
 import { HeartIcon } from '@/components/icons';
 
 const formSchema = z.object({
-  sellerId: z.string().min(1, 'Debes seleccionar tu nombre de vendedor.'),
+  username: z.string().min(1, 'Debes ingresar tu nombre de usuario.'),
   password: z.string().min(1, 'Debes ingresar tu contraseña.'),
 });
 
 export default function LoginPage() {
-  const [sellers, setSellers] = React.useState<Seller[]>([]);
   const [isLoading, setIsLoading] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
   const router = useRouter();
@@ -45,18 +37,12 @@ export default function LoginPage() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      sellerId: '',
+      username: '',
       password: '',
     },
   });
 
   React.useEffect(() => {
-    async function fetchSellers() {
-      const dbSellers = await getSellers();
-      setSellers(dbSellers);
-    }
-    fetchSellers();
-    
     // Si ya hay una sesión, redirigir a la página principal
     if (localStorage.getItem('loggedInSeller')) {
         router.push('/');
@@ -67,7 +53,7 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       const seller = await validateSellerCredentials(
-        parseInt(values.sellerId),
+        values.username,
         values.password
       );
 
@@ -82,7 +68,7 @@ export default function LoginPage() {
         toast({
           variant: 'destructive',
           title: 'Error de autenticación',
-          description: 'El vendedor o la contraseña son incorrectos.',
+          description: 'El usuario o la contraseña son incorrectos.',
         });
       }
     } catch (error) {
@@ -117,31 +103,20 @@ export default function LoginPage() {
           <CardTitle className="flex items-center gap-2 text-2xl">
             <LogIn /> Iniciar Sesión
           </CardTitle>
-          <CardDescription>Selecciona tu usuario e ingresa tu contraseña para continuar.</CardDescription>
+          <CardDescription>Ingresa tu usuario y contraseña para continuar.</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <FormField
                 control={form.control}
-                name="sellerId"
+                name="username"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Nombre de Vendedor</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecciona tu usuario..." />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {sellers.map((seller) => (
-                          <SelectItem key={seller.id} value={String(seller.id)}>
-                            {seller.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <FormLabel>Nombre de Usuario</FormLabel>
+                    <FormControl>
+                      <Input placeholder="tu-usuario" {...field} />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -176,7 +151,7 @@ export default function LoginPage() {
                   </FormItem>
                 )}
               />
-              <Button type="submit" disabled={isLoading || sellers.length === 0} className="w-full">
+              <Button type="submit" disabled={isLoading} className="w-full">
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />

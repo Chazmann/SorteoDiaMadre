@@ -17,7 +17,8 @@ interface SellerRow extends RowDataPacket, Seller {}
 export async function getOrCreateSeller(name: string): Promise<number> {
   const connection = await db.getConnection();
   try {
-    const [rows] = await connection.query<SellerRow[]>('SELECT id FROM sellers WHERE name = ?', [name]);
+    // Asumimos que el 'name' es el 'username' para la creación.
+    const [rows] = await connection.query<SellerRow[]>('SELECT id FROM sellers WHERE username = ?', [name]);
 
     if (rows.length > 0) {
       return rows[0].id;
@@ -25,7 +26,7 @@ export async function getOrCreateSeller(name: string): Promise<number> {
       const defaultPassword = '1234';
       const passwordHash = await bcrypt.hash(defaultPassword, 10);
       
-      const [result] = await connection.execute<ResultSetHeader>('INSERT INTO sellers (name, password_hash) VALUES (?, ?)', [name, passwordHash]);
+      const [result] = await connection.execute<ResultSetHeader>('INSERT INTO sellers (name, username, password_hash) VALUES (?, ?, ?)', [name, name, passwordHash]);
       if (result.insertId) {
         return result.insertId;
       } else {
@@ -47,8 +48,8 @@ export async function getOrCreateSeller(name: string): Promise<number> {
 export async function getSellers(): Promise<Seller[]> {
     const connection = await db.getConnection();
     try {
-        const [rows] = await connection.query<SellerRow[]>('SELECT id, name FROM sellers ORDER BY name ASC');
-        return rows.map(row => ({ id: row.id, name: row.name }));
+        const [rows] = await connection.query<SellerRow[]>('SELECT id, name, username FROM sellers ORDER BY name ASC');
+        return rows;
     } catch (error) {
         console.error('Error fetching sellers:', error);
         return [];
@@ -58,17 +59,17 @@ export async function getSellers(): Promise<Seller[]> {
 }
 
 /**
- * Valida las credenciales de un vendedor.
- * @param sellerId - El ID del vendedor.
+ * Valida las credenciales de un vendedor por su nombre de usuario.
+ * @param username - El nombre de usuario del vendedor.
  * @param password - La contraseña en texto plano a verificar.
  * @returns El objeto del vendedor si las credenciales son correctas, de lo contrario null.
  */
-export async function validateSellerCredentials(sellerId: number, password: string): Promise<Seller | null> {
+export async function validateSellerCredentials(username: string, password: string): Promise<Omit<Seller, 'password_hash' | 'created_at'> | null> {
     const connection = await db.getConnection();
     try {
         const [rows] = await connection.query<SellerRow[]>(
-            'SELECT id, name, password_hash FROM sellers WHERE id = ?',
-            [sellerId]
+            'SELECT id, name, username, password_hash FROM sellers WHERE username = ?',
+            [username]
         );
 
         if (rows.length > 0) {
@@ -76,7 +77,8 @@ export async function validateSellerCredentials(sellerId: number, password: stri
             const passwordMatch = await bcrypt.compare(password, seller.password_hash);
             
             if (passwordMatch) {
-                return { id: seller.id, name: seller.name };
+                // Devolvemos solo la información necesaria para la sesión
+                return { id: seller.id, name: seller.name, username: seller.username };
             }
         }
         return null;
