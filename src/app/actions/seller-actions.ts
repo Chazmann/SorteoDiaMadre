@@ -9,8 +9,7 @@ import bcrypt from 'bcryptjs';
 interface SellerRow extends RowDataPacket, Seller {}
 
 /**
- * Busca un vendedor por su nombre. Si no existe, lo crea.
- * También se asegura de que el vendedor tenga una contraseña hasheada.
+ * Busca un vendedor por su nombre. Si no existe, lo crea con una contraseña por defecto.
  * Devuelve el ID del vendedor.
  * @param name - El nombre del vendedor a buscar o crear.
  * @returns El ID del vendedor.
@@ -18,33 +17,31 @@ interface SellerRow extends RowDataPacket, Seller {}
 export async function getOrCreateSeller(name: string): Promise<number> {
   const connection = await db.getConnection();
   try {
-    const [rows] = await connection.query<SellerRow[]>('SELECT id, password_hash FROM sellers WHERE name = ?', [name]);
-
-    const defaultPassword = '1234';
-    const passwordHash = await bcrypt.hash(defaultPassword, 10);
+    // Primero, intenta encontrar al vendedor por su nombre
+    const [rows] = await connection.query<SellerRow[]>('SELECT id FROM sellers WHERE name = ?', [name]);
 
     if (rows.length > 0) {
-      const seller = rows[0];
-      // Si el vendedor existe pero no tiene hash o es inválido, lo actualizamos.
-      // Una forma simple de verificar es ver si el hash guardado corresponde a '1234'.
-      const isPasswordSet = seller.password_hash && await bcrypt.compare(defaultPassword, seller.password_hash);
-      if (!isPasswordSet) {
-          // Opcional: Podrías querer actualizar el hash aquí si es necesario, 
-          // pero para 'getOrCreate' es más seguro solo confiar en la creación inicial.
-      }
-      return seller.id;
+      // Si el vendedor existe, simplemente devuelve su ID
+      return rows[0].id;
     } else {
-      // Si no existe, lo creamos con el nombre como username y la contraseña hasheada.
-      const [result] = await connection.execute<ResultSetHeader>('INSERT INTO sellers (name, username, password_hash) VALUES (?, ?, ?)', [name, name, passwordHash]);
+      // Si el vendedor no existe, lo creamos
+      const defaultPassword = '1234';
+      const passwordHash = await bcrypt.hash(defaultPassword, 10);
+      
+      const [result] = await connection.execute<ResultSetHeader>(
+        'INSERT INTO sellers (name, username, password_hash) VALUES (?, ?, ?)',
+        [name, name, passwordHash] // Usamos el nombre como username por simplicidad
+      );
+      
       if (result.insertId) {
         return result.insertId;
       } else {
-        throw new Error('Failed to get insertId after creating a new seller.');
+        throw new Error('No se pudo obtener el ID del vendedor recién creado.');
       }
     }
   } catch (error) {
-    console.error('Error in getOrCreateSeller:', error);
-    throw new Error('Could not get or create seller.');
+    console.error('Error en getOrCreateSeller:', error);
+    throw new Error('No se pudo obtener o crear el vendedor.');
   } finally {
     connection.release();
   }
@@ -83,11 +80,12 @@ export async function validateSellerCredentials(name: string, password: string):
 
         if (rows.length > 0) {
             const seller = rows[0];
-            // Si no hay hash de contraseña, no se puede autenticar
+            // Si no hay hash de contraseña en la BD, no se puede autenticar
             if (!seller.password_hash) {
                 return null;
             }
             
+            // Compara la contraseña en texto plano con el hash guardado
             const passwordMatch = await bcrypt.compare(password, seller.password_hash);
             
             if (passwordMatch) {
@@ -95,10 +93,11 @@ export async function validateSellerCredentials(name: string, password: string):
                 return { id: seller.id, name: seller.name, username: seller.username };
             }
         }
+        // Si no se encuentra el usuario o la contraseña no coincide, retorna null
         return null;
     } catch (error) {
-        console.error('Error validating seller credentials:', error);
-        throw new Error('Server error during validation.');
+        console.error('Error validando las credenciales del vendedor:', error);
+        throw new Error('Error del servidor durante la validación.');
     } finally {
         connection.release();
     }
