@@ -25,7 +25,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Ticket as TicketIcon, Dices } from "lucide-react";
-import { getSellers } from "@/app/actions/seller-actions";
 import { Seller } from "@/lib/types";
 
 const formSchema = z.object({
@@ -39,22 +38,17 @@ export type TicketFormValues = z.infer<typeof formSchema>;
 interface TicketFormProps {
   onSubmit: (values: {
     sellerId: number;
-    sellerName: string;
     buyerName: string;
     buyerPhoneNumber: string;
   }, numbers: number[]) => void;
   isLoading: boolean;
   generateUniqueNumbers: () => number[];
+  sellers: Seller[];
 }
 
-export function TicketForm({ onSubmit, isLoading, generateUniqueNumbers }: TicketFormProps) {
+export function TicketForm({ onSubmit, isLoading, generateUniqueNumbers, sellers }: TicketFormProps) {
   const [generatedNumbers, setGeneratedNumbers] = React.useState<number[] | null>(null);
-  const [sellers, setSellers] = React.useState<Seller[]>([]);
 
-  React.useEffect(() => {
-    getSellers().then(setSellers);
-  }, []);
-  
   const form = useForm<TicketFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -71,16 +65,13 @@ export function TicketForm({ onSubmit, isLoading, generateUniqueNumbers }: Ticke
   
   const handleFormSubmit = (values: TicketFormValues) => {
     if (generatedNumbers) {
-      const selectedSeller = sellers.find(s => s.id === parseInt(values.sellerId));
-      if (selectedSeller) {
-          onSubmit({ 
-              ...values,
-              sellerId: selectedSeller.id,
-              sellerName: selectedSeller.name
-          }, generatedNumbers);
-          setGeneratedNumbers(null);
-          form.reset();
-      }
+      onSubmit({ 
+          buyerName: values.buyerName,
+          buyerPhoneNumber: values.buyerPhoneNumber,
+          sellerId: parseInt(values.sellerId),
+      }, generatedNumbers);
+      setGeneratedNumbers(null);
+      form.reset();
     }
   };
 
@@ -104,7 +95,7 @@ export function TicketForm({ onSubmit, isLoading, generateUniqueNumbers }: Ticke
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Nombre Vendedor</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Selecciona un vendedor..." />

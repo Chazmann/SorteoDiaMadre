@@ -5,7 +5,7 @@ import * as React from "react";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
-import type { Ticket } from "@/lib/types";
+import type { Ticket, Seller } from "@/lib/types";
 import { generateMotherSDayImage } from "@/ai/flows/generate-mother-s-day-image";
 import { PrizeList } from "@/components/madre-suerte/prize-list";
 import { TicketForm } from "@/components/madre-suerte/ticket-form";
@@ -22,18 +22,20 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Gift, Menu, Home as HomeIcon, Shield } from "lucide-react";
 import { getTickets, createTicket, getUsedNumberHashes } from "@/app/actions/ticket-actions";
+import { getSellers } from "@/app/actions/seller-actions";
+
 
 const MAX_TICKETS = 250;
 
 type TicketFormSubmitValues = {
     sellerId: number;
-    sellerName: string;
     buyerName: string;
     buyerPhoneNumber: string;
 };
 
 export default function Home() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [sellers, setSellers] = useState<Seller[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [generatedNumbers, setGeneratedNumbers] = useState(new Set<string>());
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
@@ -44,12 +46,14 @@ export default function Home() {
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        const [dbTickets, usedHashes] = await Promise.all([
+        const [dbTickets, usedHashes, dbSellers] = await Promise.all([
           getTickets(),
           getUsedNumberHashes(),
+          getSellers(),
         ]);
         setTickets(dbTickets);
         setGeneratedNumbers(new Set(usedHashes));
+        setSellers(dbSellers);
       } catch (error) {
         console.error("Error fetching initial data:", error);
         toast({
@@ -60,7 +64,7 @@ export default function Home() {
       }
     };
     fetchInitialData();
-  }, []);
+  }, [toast]);
 
   const generateUniqueNumbers = (): number[] => {
     let newNumbers: number[];
@@ -120,9 +124,16 @@ export default function Home() {
           buyerPhoneNumber: values.buyerPhoneNumber,
           numbers: newNumbers 
       });
+      
+      const seller = sellers.find(s => s.id === values.sellerId);
+      if (!seller) {
+        throw new Error("Vendedor no encontrado. No se puede generar la imagen del ticket.");
+      }
 
       const result = await generateMotherSDayImage({
-        ...values,
+        sellerName: seller.name,
+        buyerName: values.buyerName,
+        buyerPhoneNumber: values.buyerPhoneNumber,
         numbers: newNumbers,
         ticketId: String(newTicketId).padStart(3, '0'),
       });
@@ -130,7 +141,9 @@ export default function Home() {
       if (result.image) {
         const newTicket: Ticket = {
           id: String(newTicketId),
-          ...values,
+          sellerName: seller.name,
+          buyerName: values.buyerName,
+          buyerPhoneNumber: values.buyerPhoneNumber,
           numbers: newNumbers,
           imageUrl: result.image,
           drawingDate: "October 28, 2025",
@@ -221,6 +234,7 @@ export default function Home() {
               onSubmit={handleFormSubmit}
               isLoading={isLoading}
               generateUniqueNumbers={generateUniqueNumbers}
+              sellers={sellers}
             />
           </div>
         </section>

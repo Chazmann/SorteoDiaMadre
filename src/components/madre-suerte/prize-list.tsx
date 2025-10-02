@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Gift } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
-const GENERIC_PRIZE_IMAGE_URL = "/generic-prize.jpg";
+const GENERIC_PRIZE_IMAGE_URL = "/imagenGenericaPremio.webp";
 
 export function PrizeList() {
   const [prizes, setPrizes] = useState<Prize[]>([]);
