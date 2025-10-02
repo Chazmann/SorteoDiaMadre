@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import type { Ticket, Seller } from "@/lib/types";
 import { generateMotherSDayImage } from "@/ai/flows/generate-mother-s-day-image";
@@ -18,8 +19,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Gift, Menu, Home as HomeIcon, Shield } from "lucide-react";
+import { Gift, Menu, Home as HomeIcon, Shield, LogOut, Loader2 } from "lucide-react";
 import { getTickets, createTicket, getUsedNumbers } from "@/app/actions/ticket-actions";
 import { getSellers } from "@/app/actions/seller-actions";
 
@@ -28,7 +30,6 @@ const MAX_TICKETS = 250;
 const MAX_NUMBER = 999;
 
 type TicketFormSubmitValues = {
-    sellerId: number;
     buyerName: string;
     buyerPhoneNumber: string;
     paymentMethod: string;
@@ -44,6 +45,17 @@ export default function Home() {
   const [isPrizeModalOpen, setIsPrizeModalOpen] = useState(false);
   const [activeSellerFilter, setActiveSellerFilter] = useState<string>('todos');
   const { toast } = useToast();
+  const router = useRouter();
+  const [loggedInSeller, setLoggedInSeller] = useState<Seller | null>(null);
+
+  useEffect(() => {
+    const sellerData = localStorage.getItem('loggedInSeller');
+    if (!sellerData) {
+      router.push('/login');
+    } else {
+      setLoggedInSeller(JSON.parse(sellerData));
+    }
+  }, [router]);
 
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -65,13 +77,21 @@ export default function Home() {
         });
       }
     };
-    fetchInitialData();
-  }, [toast]);
+    if (loggedInSeller) {
+      fetchInitialData();
+    }
+  }, [toast, loggedInSeller]);
+
+  const handleLogout = () => {
+    localStorage.removeItem('loggedInSeller');
+    router.push('/login');
+    toast({ title: 'Sesión cerrada', description: 'Has cerrado sesión correctamente.' });
+  };
 
   const generateUniqueNumbers = (): number[] => {
     let newNumbers = new Set<number>();
     let attempts = 0;
-    const MAX_ATTEMPTS = 1000; // Increase attempts for safety
+    const MAX_ATTEMPTS = 1000;
 
     while (newNumbers.size < 4 && attempts < MAX_ATTEMPTS) {
         const randomNumber = Math.floor(Math.random() * (MAX_NUMBER + 1));
@@ -94,6 +114,12 @@ export default function Home() {
   };
 
   const handleFormSubmit = async (values: TicketFormSubmitValues, newNumbers: number[]): Promise<boolean> => {
+    if (!loggedInSeller) {
+      toast({ variant: "destructive", title: "Error", description: "No has iniciado sesión." });
+      router.push('/login');
+      return false;
+    }
+
     if (tickets.length >= MAX_TICKETS) {
       toast({
         variant: "destructive",
@@ -107,20 +133,15 @@ export default function Home() {
 
     try {
       const newTicketId = await createTicket({ 
-          sellerId: values.sellerId, 
+          sellerId: loggedInSeller.id, 
           buyerName: values.buyerName, 
           buyerPhoneNumber: values.buyerPhoneNumber,
           numbers: newNumbers,
           paymentMethod: values.paymentMethod,
       });
-      
-      const seller = sellers.find(s => s.id === values.sellerId);
-      if (!seller) {
-        throw new Error("Vendedor no encontrado. No se puede generar la imagen del ticket.");
-      }
 
       const result = await generateMotherSDayImage({
-        sellerName: seller.name,
+        sellerName: loggedInSeller.name,
         buyerName: values.buyerName,
         buyerPhoneNumber: values.buyerPhoneNumber,
         numbers: newNumbers,
@@ -130,7 +151,7 @@ export default function Home() {
       if (result.image) {
         const newTicket: Ticket = {
           id: String(newTicketId),
-          sellerName: seller.name,
+          sellerName: loggedInSeller.name,
           buyerName: values.buyerName,
           buyerPhoneNumber: values.buyerPhoneNumber,
           numbers: newNumbers,
@@ -152,11 +173,11 @@ export default function Home() {
       }
     } catch (error: any) {
       console.error(error);
-      const isDuplicateError = error.code === 'ER_DUP_ENTRY' || error.message?.includes('Duplicate entry') || error.message?.includes('UNIQUE constraint failed');
+      const isDuplicateError = error.message?.includes('UNIQUE constraint failed') || error.message?.includes('Duplicate entry');
       toast({
         variant: "destructive",
         title: isDuplicateError ? "Número Duplicado" : "Falló la Creación del Ticket",
-        description: isDuplicateError ? "Uno de los números generados ya fue tomado. Por favor, genera una nueva combinación." : "Hubo un error al guardar tu ticket en la base de datos. Intenta de nuevo.",
+        description: isDuplicateError ? "Uno de los números generados ya fue tomado. Por favor, genera una nueva combinación." : "Hubo un error al guardar tu ticket. Intenta de nuevo.",
       });
       return false; // Failure
     } finally {
@@ -172,6 +193,14 @@ export default function Home() {
   const filteredTickets = activeSellerFilter === 'todos' 
     ? tickets 
     : tickets.filter(ticket => ticket.sellerName === activeSellerFilter);
+  
+  if (!loggedInSeller) {
+    return (
+        <div className="flex items-center justify-center h-screen">
+          <Loader2 className="w-12 h-12 animate-spin text-primary" />
+        </div>
+    );
+  }
 
   return (
     <>
@@ -195,6 +224,15 @@ export default function Home() {
                 <span>Panel de Administración</span>
               </Link>
             </DropdownMenuItem>
+             <DropdownMenuItem onClick={() => setIsPrizeModalOpen(true)}>
+                <Gift className="mr-2 h-4 w-4" />
+                <span>Ver Premios</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleLogout} className="text-red-500 focus:text-red-500">
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Cerrar Sesión</span>
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -209,21 +247,12 @@ export default function Home() {
             <HeartIcon className="w-8 h-8 text-primary" />
           </div>
           <p className="text-xl md:text-2xl text-muted-foreground mt-2">
-            Sorteo Especial del Día de la Madre
+            Bienvenido/a, <span className="font-bold text-primary">{loggedInSeller.name}</span>.
           </p>
         </header>
 
-        {/* Hidden on mobile, visible on desktop */}
         <div className="hidden md:block">
           <PrizeList />
-        </div>
-
-        {/* Visible only on mobile */}
-        <div className="md:hidden text-center mb-8">
-          <Button onClick={() => setIsPrizeModalOpen(true)}>
-            <Gift className="mr-2" />
-            Ver Premios
-          </Button>
         </div>
 
         <section className="mt-12">
@@ -232,7 +261,6 @@ export default function Home() {
               onSubmit={handleFormSubmit}
               isLoading={isLoading}
               generateUniqueNumbers={generateUniqueNumbers}
-              sellers={sellers}
             />
           </div>
         </section>

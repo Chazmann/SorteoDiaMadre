@@ -24,10 +24,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Ticket as TicketIcon, Dices, CreditCard } from "lucide-react";
-import { Seller } from "@/lib/types";
 
 const formSchema = z.object({
-  sellerId: z.string().min(1, "Debes seleccionar un vendedor."),
   buyerName: z.string().min(2, "El nombre del comprador debe tener al menos 2 caracteres."),
   buyerPhoneNumber: z.string().regex(/^\+?[0-9\s-]{7,15}$/, "INGRESAR UN NÚMERO VÁLIDO."),
   paymentMethod: z.string().min(1, "Debes seleccionar una forma de pago."),
@@ -37,23 +35,20 @@ export type TicketFormValues = z.infer<typeof formSchema>;
 
 interface TicketFormProps {
   onSubmit: (values: {
-    sellerId: number;
     buyerName: string;
     buyerPhoneNumber: string;
     paymentMethod: string;
   }, numbers: number[]) => Promise<boolean>; // Returns a promise with a boolean indicating success
   isLoading: boolean;
   generateUniqueNumbers: () => number[];
-  sellers: Seller[];
 }
 
-export function TicketForm({ onSubmit, isLoading, generateUniqueNumbers, sellers }: TicketFormProps) {
+export function TicketForm({ onSubmit, isLoading, generateUniqueNumbers }: TicketFormProps) {
   const [generatedNumbers, setGeneratedNumbers] = React.useState<number[] | null>(null);
 
   const form = useForm<TicketFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      sellerId: "",
       buyerName: "",
       buyerPhoneNumber: "",
       paymentMethod: "",
@@ -75,7 +70,6 @@ export function TicketForm({ onSubmit, isLoading, generateUniqueNumbers, sellers
       const success = await onSubmit({ 
           buyerName: values.buyerName,
           buyerPhoneNumber: values.buyerPhoneNumber,
-          sellerId: parseInt(values.sellerId),
           paymentMethod: values.paymentMethod,
       }, generatedNumbers);
       
@@ -105,30 +99,6 @@ export function TicketForm({ onSubmit, isLoading, generateUniqueNumbers, sellers
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
-            <FormField
-              control={form.control}
-              name="sellerId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nombre Vendedor</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecciona un vendedor..." />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {sellers.map((seller) => (
-                        <SelectItem key={seller.id} value={String(seller.id)}>
-                          {seller.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
             <FormField
               control={form.control}
               name="buyerName"
@@ -197,7 +167,7 @@ export function TicketForm({ onSubmit, isLoading, generateUniqueNumbers, sellers
               {generatedNumbers ? "Generar otros números" : "Generar números de la suerte"}
             </Button>
             
-            <Button type="submit" disabled={isLoading || !generatedNumbers || sellers.length === 0} className="w-full" size="lg">
+            <Button type="submit" disabled={isLoading || !generatedNumbers} className="w-full" size="lg">
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

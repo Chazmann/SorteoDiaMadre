@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Ticket, Prize, Seller } from '@/lib/types';
 import { Tab, Tabs, TabList, TabPanel } from 'react-tabs';
 import 'react-tabs/style/react-tabs.css';
@@ -12,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FileDown, Pencil, Shield, Menu, Home as HomeIcon, Users, BarChart } from 'lucide-react';
+import { FileDown, Pencil, Shield, Menu, Home as HomeIcon, Users, BarChart, LogOut } from 'lucide-react';
 import { getTickets } from '@/app/actions/ticket-actions';
 import { getPrizes, updatePrize } from '@/app/actions/prize-actions';
 import { getSellers } from '@/app/actions/seller-actions';
@@ -22,6 +23,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from '@/components/ui/skeleton';
@@ -94,8 +96,16 @@ export default function AdminPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [statsSellerFilter, setStatsSellerFilter] = useState('todos');
+  const router = useRouter();
 
   useEffect(() => {
+    // Proteger la ruta: si no hay sesión, redirigir a login.
+    const sellerData = localStorage.getItem('loggedInSeller');
+    if (!sellerData) {
+      router.push('/login');
+      return;
+    }
+
     async function fetchData() {
         setLoading(true);
         try {
@@ -119,7 +129,13 @@ export default function AdminPage() {
         }
     }
     fetchData();
-  }, [toast]);
+  }, [toast, router]);
+
+   const handleLogout = () => {
+    localStorage.removeItem('loggedInSeller');
+    router.push('/login');
+    toast({ title: 'Sesión cerrada', description: 'Has cerrado sesión correctamente.' });
+  };
 
   const handleExportPDF = () => {
     const doc = new jsPDF();
@@ -228,6 +244,11 @@ export default function AdminPage() {
                 <Shield className="mr-2 h-4 w-4" />
                 <span>Panel de Administración</span>
               </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleLogout} className="text-red-500 focus:text-red-500">
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Cerrar Sesión</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

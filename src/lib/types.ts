@@ -22,4 +22,5 @@ export interface Prize {
 export interface Seller {
     id: number;
     name: string;
+    password?: string;
 }
