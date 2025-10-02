@@ -3,8 +3,7 @@
 
 import * as React from 'react';
 import { useState, useEffect } from 'react';
-import { Ticket } from '@/lib/types';
-import { PlaceHolderImages, type ImagePlaceholder } from '@/lib/placeholder-images';
+import { Ticket, Prize } from '@/lib/types';
 import { Tab, Tabs, TabList, TabPanel } from 'react-tabs';
 import 'react-tabs/style/react-tabs.css';
 import { Button } from '@/components/ui/button';
@@ -13,6 +12,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { FileDown, Pencil, Shield } from 'lucide-react';
 import { getTickets } from '@/app/actions/ticket-actions';
+import { getPrizes, updatePrize } from '@/app/actions/prize-actions';
+import { useToast } from '@/hooks/use-toast';
+import { Loader2 } from 'lucide-react';
 
 // Mock implementation of jsPDF and autoTable for client-side rendering
 const jsPDF =
@@ -29,21 +31,35 @@ if (typeof window !== 'undefined') {
 
 export default function AdminPage() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [prizes, setPrizes] = useState<ImagePlaceholder[]>([]);
-  const [editingPrize, setEditingPrize] = useState<ImagePlaceholder | null>(null);
+  const [prizes, setPrizes] = useState<Prize[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editingPrize, setEditingPrize] = useState<Prize | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
-    // Cargar tickets desde la base de datos
-    getTickets()
-      .then(setTickets)
-      .catch(err => {
-        console.error("Failed to load tickets", err);
-        alert("Error al cargar los tickets desde la base de datos.");
-      });
-
-    // Cargar premios (aún desde el archivo local, podría migrarse a DB)
-    setPrizes(PlaceHolderImages.filter(img => img.id.startsWith('prize-')));
-  }, []);
+    async function fetchData() {
+        setLoading(true);
+        try {
+            const [dbTickets, dbPrizes] = await Promise.all([
+                getTickets(),
+                getPrizes()
+            ]);
+            setTickets(dbTickets);
+            setPrizes(dbPrizes);
+        } catch (err) {
+            console.error("Failed to load data", err);
+            toast({
+                variant: "destructive",
+                title: "Error de Carga",
+                description: "No se pudieron cargar los datos desde la base de datos."
+            });
+        } finally {
+            setLoading(false);
+        }
+    }
+    fetchData();
+  }, [toast]);
 
   const handleExportPDF = () => {
     const doc = new jsPDF();
@@ -60,22 +76,35 @@ export default function AdminPage() {
     doc.save('tickets.pdf');
   };
 
-  const handleEditPrize = (prize: ImagePlaceholder) => {
+  const handleEditPrize = (prize: Prize) => {
     setEditingPrize({ ...prize });
   };
 
-  const handleSaveChanges = () => {
+  const handleSaveChanges = async () => {
     if (editingPrize) {
-      // En una app real, aquí llamarías a una API para guardar en la tabla `prizes`
-      // Por ahora, solo actualizamos el estado local.
-      setPrizes(prizes.map(p => (p.id === editingPrize.id ? editingPrize : p)));
-      alert('Cambios guardados (simulado). En una app real, esto se guardaría en la base de datos.');
-      setEditingPrize(null);
+      setIsSaving(true);
+      const result = await updatePrize(editingPrize.id, editingPrize.title, editingPrize.image_url);
+      setIsSaving(false);
+      
+      if (result.success) {
+        setPrizes(prizes.map(p => (p.id === editingPrize.id ? editingPrize : p)));
+        toast({ title: "Éxito", description: result.message });
+        setEditingPrize(null);
+      } else {
+        toast({ variant: "destructive", title: "Error", description: result.message });
+      }
     }
   };
   
   const sortedTickets = [...tickets].sort((a,b) => parseInt(a.id) - parseInt(b.id));
 
+  if (loading) {
+    return (
+        <div className="container mx-auto p-4 md:p-8 flex justify-center items-center h-screen">
+            <Loader2 className="w-12 h-12 animate-spin text-primary" />
+        </div>
+    )
+  }
 
   return (
     <div className="container mx-auto p-4 md:p-8">
@@ -123,7 +152,7 @@ export default function AdminPage() {
                     {sortedTickets.map(ticket => (
                       <TableRow key={ticket.id}>
                         <TableCell className="font-semibold">{String(ticket.id).padStart(3, '0')}</TableCell>
-                        <TableCell>{ticket.sellerName}</TableCell>
+                        <TableCell>{ticket.sellerName || 'N/A'}</TableCell>
                         <TableCell>{ticket.buyerName}</TableCell>
                         <TableCell>{ticket.buyerPhoneNumber}</TableCell>
                         <TableCell>
@@ -149,7 +178,7 @@ export default function AdminPage() {
              <CardHeader>
                 <CardTitle>Premios del Sorteo</CardTitle>
                 <CardDescription>
-                    Aquí puedes editar la información de los premios. Los cambios son solo demostrativos.
+                    Aquí puedes editar la información de los premios. Los cambios se guardarán en la base de datos.
                 </CardDescription>
              </CardHeader>
              <CardContent>
@@ -158,16 +187,16 @@ export default function AdminPage() {
                         <Card key={prize.id}>
                             <CardHeader>
                                 <CardTitle className="flex justify-between items-center">
-                                    {prize.id.replace('prize-','').toUpperCase()}
+                                    {`Premio ${prize.prize_order}`}
                                     <Button variant="ghost" size="icon" onClick={() => handleEditPrize(prize)}>
                                         <Pencil className="w-4 h-4"/>
                                     </Button>
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <img src={prize.imageUrl} alt={prize.description} className="rounded-md mb-4 w-full h-auto object-cover aspect-video"/>
+                                <img src={prize.image_url} alt={prize.title} className="rounded-md mb-4 w-full h-auto object-cover aspect-video"/>
                                 <p className="font-semibold">Título:</p>
-                                <p>{prize.description}</p>
+                                <p>{prize.title}</p>
                             </CardContent>
                         </Card>
                     ))}
@@ -188,20 +217,23 @@ export default function AdminPage() {
                      <div>
                         <label className="text-sm font-medium">Título del Premio</label>
                         <Input 
-                            value={editingPrize.description} 
-                            onChange={(e) => setEditingPrize({...editingPrize, description: e.target.value})}
+                            value={editingPrize.title} 
+                            onChange={(e) => setEditingPrize({...editingPrize, title: e.target.value})}
                         />
                      </div>
                      <div>
                         <label className="text-sm font-medium">URL de la Imagen</label>
                         <Input 
-                            value={editingPrize.imageUrl}
-                            onChange={(e) => setEditingPrize({...editingPrize, imageUrl: e.target.value})}
+                            value={editingPrize.image_url}
+                            onChange={(e) => setEditingPrize({...editingPrize, image_url: e.target.value})}
                         />
                      </div>
                      <div className="flex justify-end gap-2">
                         <Button variant="outline" onClick={() => setEditingPrize(null)}>Cancelar</Button>
-                        <Button onClick={handleSaveChanges}>Guardar Cambios</Button>
+                        <Button onClick={handleSaveChanges} disabled={isSaving}>
+                          {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          Guardar Cambios
+                        </Button>
                      </div>
                 </CardContent>
             </Card>

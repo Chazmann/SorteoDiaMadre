@@ -1,4 +1,5 @@
 
+
 export interface Ticket {
   id: string;
   sellerName: string;
@@ -10,11 +11,12 @@ export interface Ticket {
 }
 
 export interface Prize {
-  id: string;
-  description: string;
-  imageUrl: string;
-  imageHint: string;
+  id: number;
+  prize_order: number;
+  title: string;
+  image_url: string;
 }
+
 
 export interface Seller {
     id: number;
