@@ -11,6 +11,47 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 const GENERIC_PRIZE_IMAGE_URL = "/generic-prize.jpg";
 
+interface PrizeCardProps {
+  prize: Prize;
+}
+
+function PrizeCard({ prize }: PrizeCardProps) {
+  const [imageSrc, setImageSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Set the image source on the client side to avoid hydration issues with Data URLs
+    setImageSrc(prize.image_url || GENERIC_PRIZE_IMAGE_URL);
+  }, [prize.image_url]);
+
+  return (
+    <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 bg-card">
+      <CardHeader>
+        <CardTitle className="text-accent">{`Premio ${prize.prize_order}`}</CardTitle>
+      </CardHeader>
+      <div className="aspect-video relative w-full">
+        {!imageSrc ? (
+          <Skeleton className="h-full w-full" />
+        ) : (
+          <img
+            src={imageSrc}
+            alt={prize.title}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              if ((e.target as HTMLImageElement).src !== GENERIC_PRIZE_IMAGE_URL) {
+                (e.target as HTMLImageElement).src = GENERIC_PRIZE_IMAGE_URL;
+              }
+            }}
+          />
+        )}
+      </div>
+      <CardContent className="p-4">
+        <CardDescription className="text-lg text-center font-semibold text-card-foreground">{prize.title}</CardDescription>
+      </CardContent>
+    </Card>
+  );
+}
+
+
 export function PrizeList() {
   const [prizes, setPrizes] = useState<Prize[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,22 +102,7 @@ export function PrizeList() {
       </h2>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {prizes.map((prize) => (
-          <Card key={prize.id} className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 bg-card">
-            <CardHeader>
-              <CardTitle className="text-accent">{`Premio ${prize.prize_order}`}</CardTitle>
-            </CardHeader>
-            <div className="aspect-video relative w-full">
-              <img
-                src={prize.image_url || GENERIC_PRIZE_IMAGE_URL}
-                alt={prize.title}
-                className="w-full h-full object-cover"
-                onError={(e) => { (e.target as HTMLImageElement).src = GENERIC_PRIZE_IMAGE_URL; }}
-              />
-            </div>
-            <CardContent className="p-4">
-              <CardDescription className="text-lg text-center font-semibold text-card-foreground">{prize.title}</CardDescription>
-            </CardContent>
-          </Card>
+          <PrizeCard key={prize.id} prize={prize} />
         ))}
       </div>
     </section>
