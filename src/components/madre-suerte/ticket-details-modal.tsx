@@ -32,15 +32,21 @@ export function TicketDetailsModal({ ticket, isOpen, onOpenChange }: TicketDetai
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="relative aspect-video w-full rounded-lg overflow-hidden border">
-             <Image
-                src={ticket.imageUrl}
-                alt="Generated lottery ticket for Mother's Day"
-                fill
-                className="object-contain"
-              />
+             {ticket.imageUrl ? (
+                <Image
+                    src={ticket.imageUrl}
+                    alt="Generated lottery ticket for Mother's Day"
+                    fill
+                    className="object-contain"
+                />
+              ) : (
+                <div className="flex items-center justify-center h-full bg-muted text-muted-foreground text-sm">
+                  Vista previa de imagen no disponible.
+                </div>
+              )}
           </div>
           <div className="text-center font-bold text-lg">
-            Ticket # {ticket.id}
+            Ticket # {String(ticket.id).padStart(3, '0')}
           </div>
           <div className="space-y-2">
             <h3 className="text-lg font-semibold">Números:</h3>
@@ -63,7 +69,7 @@ export function TicketDetailsModal({ ticket, isOpen, onOpenChange }: TicketDetai
              </div>
              <div className="space-y-1">
                 <p className="text-muted-foreground">Vendido por</p>
-                <p className="font-semibold">{ticket.sellerName}</p>
+                <p className="font-semibold">{ticket.sellerName || 'N/A'}</p>
              </div>
              <div className="space-y-1">
                 <p className="text-muted-foreground">Fecha de sorteo</p>
