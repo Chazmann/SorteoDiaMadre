@@ -4,7 +4,6 @@
 import db from '@/lib/db';
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { Seller } from '@/lib/types';
-import bcrypt from 'bcryptjs';
 
 interface SellerRow extends RowDataPacket, Seller {}
 
@@ -26,7 +25,7 @@ export async function getSellers(): Promise<Seller[]> {
 }
 
 /**
- * Valida las credenciales de un vendedor por su nombre y contraseña.
+ * Valida las credenciales de un vendedor por su nombre y contraseña (texto plano).
  * @param name - El nombre del vendedor seleccionado en el login.
  * @param password - La contraseña en texto plano a verificar.
  * @returns El objeto del vendedor si las credenciales son correctas, de lo contrario null.
@@ -47,16 +46,8 @@ export async function validateSellerCredentials(name: string, password: string):
 
         const seller = rows[0];
 
-        // Si por alguna razón no tiene un hash de contraseña, no puede autenticarse.
-        if (!seller.password_hash) {
-            return null;
-        }
-        
-        // Compara la contraseña en texto plano con el hash guardado en la base de datos.
-        // bcrypt.compare se encarga de todo el proceso de forma segura.
-        const passwordMatch = await bcrypt.compare(password, seller.password_hash);
-        
-        if (passwordMatch) {
+        // Comparación directa de contraseñas en texto plano.
+        if (seller.password_hash === password) {
             // La contraseña es correcta. Devolvemos los datos para la sesión.
             return { id: seller.id, name: seller.name, username: seller.username };
         } else {
