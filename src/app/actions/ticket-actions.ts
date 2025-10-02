@@ -42,7 +42,7 @@ function mapRowToTicket(row: TicketRow): Ticket {
 
 export async function getTickets(): Promise<Ticket[]> {
   try {
-    // La consulta ya no pide 'seller_id' o 'seller_name'
+    // La consulta ya no pide 'seller_id'
     const [rows] = await db.query<TicketRow[]>('SELECT id, buyer_name, buyer_phone_number, number_1, number_2, number_3, number_4, numbers_hash FROM tickets ORDER BY id DESC');
     if (!rows) {
         return [];
