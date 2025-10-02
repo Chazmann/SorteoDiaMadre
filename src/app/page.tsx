@@ -110,16 +110,6 @@ export default function Home() {
     try {
       const numbersKey = [...newNumbers].sort((a, b) => a - b).join(',');
       
-      if (generatedNumbers.has(numbersKey)) {
-        toast({
-          variant: "destructive",
-          title: "Números Duplicados",
-          description: "Estos números ya han sido generados. Por favor, genera un nuevo set.",
-        });
-        setIsLoading(false);
-        return;
-      }
-      
       const newTicketId = await createTicket({ 
           sellerId: values.sellerId, 
           buyerName: values.buyerName, 

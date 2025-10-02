@@ -76,6 +76,9 @@ export async function createTicket(data: CreateTicketData): Promise<number> {
     const sortedNumbers = [...numbers].sort((a, b) => a - b);
     const numbersHash = sortedNumbers.join(',');
 
+    // Asegurarse de que la restricción UNIQUE existe en la tabla.
+    // Esto se debe hacer manualmente en la base de datos:
+    // ALTER TABLE tickets ADD UNIQUE INDEX `numbers_hash_unique` (`numbers_hash`);
     const query = `
       INSERT INTO tickets 
       (seller_id, buyer_name, buyer_phone_number, number_1, number_2, number_3, number_4, numbers_hash, metodo_pago)
@@ -101,6 +104,8 @@ export async function createTicket(data: CreateTicketData): Promise<number> {
     }
   } catch (error) {
     console.error('Error creating ticket:', error);
+    // Relanzar el error para que el frontend pueda manejarlo.
+    // El frontend podrá identificar un error de 'Duplicate entry'
     throw error; 
   } finally {
       connection.release();
