@@ -18,19 +18,28 @@ import {
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { validateSellerCredentials } from '@/app/actions/seller-actions';
+import { validateSellerCredentials, getSellers } from '@/app/actions/seller-actions';
 import { Seller } from '@/lib/types';
-import { Loader2, LogIn, Eye, EyeOff } from 'lucide-react';
+import { Loader2, LogIn, Eye, EyeOff, Users } from 'lucide-react';
 import { HeartIcon } from '@/components/icons';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
 
 const formSchema = z.object({
-  username: z.string().min(1, 'Debes ingresar tu nombre de usuario.'),
+  username: z.string().min(1, 'Debes seleccionar un vendedor.'),
   password: z.string().min(1, 'Debes ingresar tu contraseña.'),
 });
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
+  const [sellers, setSellers] = React.useState<Seller[]>([]);
   const router = useRouter();
   const { toast } = useToast();
 
@@ -41,13 +50,21 @@ export default function LoginPage() {
       password: '',
     },
   });
-
+  
   React.useEffect(() => {
     // Si ya hay una sesión, redirigir a la página principal
     if (localStorage.getItem('loggedInSeller')) {
         router.push('/');
     }
+
+    async function fetchSellers() {
+        const sellerList = await getSellers();
+        setSellers(sellerList);
+    }
+    fetchSellers();
+
   }, [router]);
+
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
@@ -108,15 +125,27 @@ export default function LoginPage() {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <FormField
+               <FormField
                 control={form.control}
                 name="username"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Nombre de Usuario</FormLabel>
-                    <FormControl>
-                      <Input placeholder="tu-usuario" {...field} />
-                    </FormControl>
+                    <FormLabel>Vendedor</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                       <FormControl>
+                        <SelectTrigger>
+                           <Users className="w-4 h-4 mr-2" />
+                           <SelectValue placeholder="Selecciona tu nombre..." />
+                        </SelectTrigger>
+                       </FormControl>
+                       <SelectContent>
+                         {sellers.map((seller) => (
+                            <SelectItem key={seller.id} value={seller.username}>
+                                {seller.name}
+                            </SelectItem>
+                         ))}
+                       </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
