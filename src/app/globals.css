@@ -32,6 +32,9 @@ body {
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
 
+    --success: 140 60% 90%; /* Pastel Green */
+    --success-foreground: 140 40% 10%;
+
     --border: 336 82% 81%; /* A border based on primary */
     --input: 0 0% 100%; /* White input background */
     --ring: 336 82% 51%; /* Rose for focus rings */
@@ -77,6 +80,9 @@ body {
 
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
+
+    --success: 140 30% 20%;
+    --success-foreground: 140 70% 90%;
 
     --border: 283 20% 25%;
     --input: 283 20% 20%;

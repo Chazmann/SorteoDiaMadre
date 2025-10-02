@@ -164,6 +164,7 @@ export default function Home() {
         newNumbers.forEach(num => updatedUsedNumbers.add(num));
         setUsedNumbers(updatedUsedNumbers);
         toast({
+          variant: "success",
           title: "¡Suerte!",
           description: "Tu ticket de la suerte ha sido generado.",
         });
