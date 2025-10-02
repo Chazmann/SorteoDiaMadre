@@ -42,7 +42,7 @@ function mapRowToTicket(row: TicketRow): Ticket {
 
 export async function getTickets(): Promise<Ticket[]> {
   try {
-    const [rows] = await db.query<TicketRow[]>('SELECT * FROM tickets ORDER BY id DESC');
+    const [rows] = await db.query<TicketRow[]>('SELECT id, seller_name, buyer_name, buyer_phone_number, number_1, number_2, number_3, number_4, numbers_hash FROM tickets ORDER BY id DESC');
     return rows.map(mapRowToTicket);
   } catch (error) {
     console.error('Error fetching tickets:', error);
