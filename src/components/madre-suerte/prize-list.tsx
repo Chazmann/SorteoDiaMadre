@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Gift } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
-const GENERIC_PRIZE_IMAGE_URL = "/imagenGenericaPremio.webp";
+const GENERIC_PRIZE_IMAGE_URL = "/generic-prize.jpg";
 
 export function PrizeList() {
   const [prizes, setPrizes] = useState<Prize[]>([]);
@@ -66,12 +66,11 @@ export function PrizeList() {
               <CardTitle className="text-accent">{`Premio ${prize.prize_order}`}</CardTitle>
             </CardHeader>
             <div className="aspect-video relative w-full">
-              <Image
+              <img
                 src={prize.image_url || GENERIC_PRIZE_IMAGE_URL}
                 alt={prize.title}
-                fill
-                className="object-cover"
-                onError={(e) => { e.currentTarget.src = GENERIC_PRIZE_IMAGE_URL; }}
+                className="w-full h-full object-cover"
+                onError={(e) => { (e.target as HTMLImageElement).src = GENERIC_PRIZE_IMAGE_URL; }}
               />
             </div>
             <CardContent className="p-4">
