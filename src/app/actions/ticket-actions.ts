@@ -3,7 +3,7 @@
 
 import db from '@/lib/db';
 import { Ticket } from '@/lib/types';
-import { RowDataPacket } from 'mysql2';
+import { RowDataPacket, ResultSetHeader } from 'mysql2';
 import { getOrCreateSeller } from './seller-actions';
 
 type CreateTicketData = {
@@ -16,7 +16,7 @@ type CreateTicketData = {
 // El tipo de fila ahora une tickets y sellers
 interface TicketWithSellerRow extends RowDataPacket {
   id: number;
-  seller_name: string; // de la tabla sellers
+  seller_name: string; 
   buyer_name: string;
   buyer_phone_number: string;
   number_1: number;
@@ -32,13 +32,14 @@ function mapRowToTicket(row: TicketWithSellerRow): Ticket {
     buyerName: row.buyer_name,
     buyerPhoneNumber: row.buyer_phone_number,
     numbers: [row.number_1, row.number_2, row.number_3, row.number_4],
-    imageUrl: '', // Se genera en el cliente, esto está bien
+    imageUrl: '', // Se genera en el cliente
     drawingDate: 'October 28, 2025',
   };
 }
 
 
 export async function getTickets(): Promise<Ticket[]> {
+  const connection = await db.getConnection();
   try {
     // Unimos las tablas para obtener el nombre del vendedor
     const query = `
@@ -52,22 +53,22 @@ export async function getTickets(): Promise<Ticket[]> {
             t.number_3, 
             t.number_4
         FROM tickets t
-        JOIN sellers s ON t.seller_id = s.id
+        LEFT JOIN sellers s ON t.seller_id = s.id
         ORDER BY t.id DESC
     `;
-    const [rows] = await db.query<TicketWithSellerRow[]>(query);
-    if (!rows) {
-        return [];
-    }
+    const [rows] = await connection.query<TicketWithSellerRow[]>(query);
     return rows.map(mapRowToTicket);
   } catch (error) {
     console.error('Error fetching tickets:', error);
-    return [];
+    return []; // Devolver array vacío en caso de error
+  } finally {
+    connection.release();
   }
 }
 
 export async function createTicket(data: CreateTicketData): Promise<number> {
   const { sellerName, buyerName, buyerPhoneNumber, numbers } = data;
+  const connection = await db.getConnection();
 
   try {
     // 1. Obtenemos o creamos el vendedor y recibimos su ID
@@ -84,7 +85,7 @@ export async function createTicket(data: CreateTicketData): Promise<number> {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
-    const [result] = await db.execute(query, [
+    const [result] = await connection.execute<ResultSetHeader>(query, [
       sellerId,
       buyerName,
       buyerPhoneNumber,
@@ -95,26 +96,30 @@ export async function createTicket(data: CreateTicketData): Promise<number> {
       numbersHash,
     ]);
     
-    const insertId = (result as any).insertId;
-    if (!insertId) {
+    if (result.insertId) {
+        return result.insertId;
+    } else {
         throw new Error('Failed to get insertId from database response.');
     }
-    return insertId;
   } catch (error) {
     console.error('Error creating ticket:', error);
-    throw error; // Re-lanzamos el error para que la UI lo pueda atrapar
+    // Relanzar el error para que la UI lo pueda atrapar
+    // Esto es importante para que el usuario reciba feedback del fallo
+    throw error; 
+  } finally {
+      connection.release();
   }
 }
 
 export async function getUsedNumberHashes(): Promise<string[]> {
+    const connection = await db.getConnection();
     try {
-        const [rows] = await db.query<(RowDataPacket & { numbers_hash: string })[]>('SELECT numbers_hash FROM tickets');
-        if (!rows) {
-            return [];
-        }
+        const [rows] = await connection.query<(RowDataPacket & { numbers_hash: string })[]>('SELECT numbers_hash FROM tickets');
         return rows.map(row => row.numbers_hash);
     } catch (error) {
         console.error('Error fetching used number hashes:', error);
         return [];
+    } finally {
+        connection.release();
     }
 }

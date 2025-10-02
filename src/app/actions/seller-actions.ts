@@ -2,9 +2,8 @@
 'use server';
 
 import db from '@/lib/db';
-import { RowDataPacket } from 'mysql2';
+import { ResultSetHeader, RowDataPacket } from 'mysql2';
 
-// Interfaz para la fila de la tabla sellers
 interface SellerRow extends RowDataPacket {
   id: number;
   name: string;
@@ -19,23 +18,24 @@ interface SellerRow extends RowDataPacket {
 export async function getOrCreateSeller(name: string): Promise<number> {
   const connection = await db.getConnection();
   try {
-    // 1. Intentar encontrar el vendedor
+    // 1. Intentar encontrar el vendedor por nombre
     const [rows] = await connection.query<SellerRow[]>('SELECT id FROM sellers WHERE name = ?', [name]);
 
-    if (rows && rows.length > 0) {
-      // El vendedor ya existe, devolvemos su ID
+    if (rows.length > 0) {
+      // Vendedor encontrado, devolver su ID
       return rows[0].id;
     } else {
-      // 2. El vendedor no existe, lo creamos
-      const [result] = await connection.execute('INSERT INTO sellers (name) VALUES (?)', [name]);
-      const insertId = (result as any).insertId;
-      if (!insertId) {
-        throw new Error('Failed to create a new seller.');
+      // 2. Vendedor no encontrado, crearlo
+      const [result] = await connection.execute<ResultSetHeader>('INSERT INTO sellers (name) VALUES (?)', [name]);
+      if (result.insertId) {
+        return result.insertId;
+      } else {
+        throw new Error('Failed to get insertId after creating a new seller.');
       }
-      return insertId;
     }
   } catch (error) {
     console.error('Error in getOrCreateSeller:', error);
+    // Relanzar el error para que el llamador sepa que algo salió mal.
     throw new Error('Could not get or create seller.');
   } finally {
     connection.release();
