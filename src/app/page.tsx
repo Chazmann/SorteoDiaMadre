@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -152,7 +151,7 @@ export default function Home() {
       }
     } catch (error: any) {
       console.error(error);
-      const isDuplicateError = error.message?.includes('Duplicate entry');
+      const isDuplicateError = error.code === 'ER_DUP_ENTRY' || error.message?.includes('Duplicate entry');
       toast({
         variant: "destructive",
         title: isDuplicateError ? "Número Duplicado" : "Falló la Creación del Ticket",

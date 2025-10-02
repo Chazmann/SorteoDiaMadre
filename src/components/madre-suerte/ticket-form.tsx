@@ -1,4 +1,3 @@
-
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -62,8 +61,13 @@ export function TicketForm({ onSubmit, isLoading, generateUniqueNumbers, sellers
   });
 
   const handleGenerateNumbers = () => {
-    const newNumbers = generateUniqueNumbers();
-    setGeneratedNumbers(newNumbers);
+    try {
+        const newNumbers = generateUniqueNumbers();
+        setGeneratedNumbers(newNumbers);
+    } catch(e) {
+        // Toast is already shown in the generateUniqueNumbers function
+        console.error(e);
+    }
   };
   
   const handleFormSubmit = (values: TicketFormValues) => {
