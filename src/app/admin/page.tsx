@@ -287,7 +287,7 @@ export default function AdminPage() {
                           <div className="flex gap-2">
                             {ticket.numbers.map((num, i) => (
                               <span key={i} className="font-mono bg-muted px-2 py-1 rounded-md">
-                                {String(num).padStart(3, '0')
+                                {String(num).padStart(3, '0')}
                               </span>
                             ))}
                           </div>
@@ -472,3 +472,5 @@ if (styleSheet) {
     styleSheet.innerText = adminPageStyle;
     document.head.appendChild(styleSheet);
 }
+
+    
