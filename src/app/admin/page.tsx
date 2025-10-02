@@ -16,6 +16,8 @@ import { getPrizes, updatePrize } from '@/app/actions/prize-actions';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 
+const GENERIC_PRIZE_IMAGE_URL = "https://placehold.co/600x400/EEE/31343C?text=Editar+Premio";
+
 // Mock implementation of jsPDF and autoTable for client-side rendering
 const jsPDF =
   typeof window !== 'undefined'
@@ -194,7 +196,7 @@ export default function AdminPage() {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <img src={prize.image_url} alt={prize.title} className="rounded-md mb-4 w-full h-auto object-cover aspect-video"/>
+                                <img src={prize.image_url || GENERIC_PRIZE_IMAGE_URL} alt={prize.title} className="rounded-md mb-4 w-full h-auto object-cover aspect-video"/>
                                 <p className="font-semibold">Título:</p>
                                 <p>{prize.title}</p>
                             </CardContent>
@@ -288,3 +290,5 @@ if (styleSheet) {
     styleSheet.innerText = adminPageStyle;
     document.head.appendChild(styleSheet);
 }
+
+    

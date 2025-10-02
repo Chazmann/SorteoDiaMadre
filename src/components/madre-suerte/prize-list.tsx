@@ -9,6 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Gift } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
+const GENERIC_PRIZE_IMAGE_URL = "https://placehold.co/600x400/EEE/31343C?text=Premio";
+
 export function PrizeList() {
   const [prizes, setPrizes] = useState<Prize[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,7 +67,7 @@ export function PrizeList() {
             </CardHeader>
             <div className="aspect-video relative w-full">
               <Image
-                src={prize.image_url}
+                src={prize.image_url || GENERIC_PRIZE_IMAGE_URL}
                 alt={prize.title}
                 fill
                 className="object-cover"
@@ -80,3 +82,5 @@ export function PrizeList() {
     </section>
   );
 }
+
+    
