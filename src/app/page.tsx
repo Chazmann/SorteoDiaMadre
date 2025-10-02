@@ -31,6 +31,7 @@ type TicketFormSubmitValues = {
     sellerId: number;
     buyerName: string;
     buyerPhoneNumber: string;
+    paymentMethod: string;
 };
 
 export default function Home() {
@@ -123,7 +124,8 @@ export default function Home() {
           sellerId: values.sellerId, 
           buyerName: values.buyerName, 
           buyerPhoneNumber: values.buyerPhoneNumber,
-          numbers: newNumbers 
+          numbers: newNumbers,
+          paymentMethod: values.paymentMethod,
       });
       
       const seller = sellers.find(s => s.id === values.sellerId);
@@ -148,6 +150,7 @@ export default function Home() {
           numbers: newNumbers,
           imageUrl: result.image,
           drawingDate: "October 28, 2025",
+          paymentMethod: values.paymentMethod,
         };
         setTickets(prevTickets => [newTicket, ...prevTickets]);
         setGeneratedNumbers(prev => new Set(prev).add(numbersKey));

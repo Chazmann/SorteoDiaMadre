@@ -1,3 +1,4 @@
+
 // src/app/actions/ticket-actions.ts
 'use server';
 
@@ -6,10 +7,11 @@ import { Ticket } from '@/lib/types';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
 
 type CreateTicketData = {
-  sellerId: number; // Cambiado a sellerId
+  sellerId: number;
   buyerName: string;
   buyerPhoneNumber: string;
   numbers: number[];
+  paymentMethod: string;
 };
 
 interface TicketWithSellerRow extends RowDataPacket {
@@ -21,17 +23,19 @@ interface TicketWithSellerRow extends RowDataPacket {
   number_2: number;
   number_3: number;
   number_4: number;
+  metodo_pago: string;
 };
 
 function mapRowToTicket(row: TicketWithSellerRow): Ticket {
   return {
     id: String(row.id),
-    sellerName: row.seller_name, // Mantenemos el nombre para la UI
+    sellerName: row.seller_name,
     buyerName: row.buyer_name,
     buyerPhoneNumber: row.buyer_phone_number,
     numbers: [row.number_1, row.number_2, row.number_3, row.number_4],
     imageUrl: '', 
     drawingDate: 'October 28, 2025',
+    paymentMethod: row.metodo_pago,
   };
 }
 
@@ -48,7 +52,8 @@ export async function getTickets(): Promise<Ticket[]> {
             t.number_1, 
             t.number_2, 
             t.number_3, 
-            t.number_4
+            t.number_4,
+            t.metodo_pago
         FROM tickets t
         LEFT JOIN sellers s ON t.seller_id = s.id
         ORDER BY t.id DESC
@@ -64,7 +69,7 @@ export async function getTickets(): Promise<Ticket[]> {
 }
 
 export async function createTicket(data: CreateTicketData): Promise<number> {
-  const { sellerId, buyerName, buyerPhoneNumber, numbers } = data;
+  const { sellerId, buyerName, buyerPhoneNumber, numbers, paymentMethod } = data;
   const connection = await db.getConnection();
 
   try {
@@ -73,8 +78,8 @@ export async function createTicket(data: CreateTicketData): Promise<number> {
 
     const query = `
       INSERT INTO tickets 
-      (seller_id, buyer_name, buyer_phone_number, number_1, number_2, number_3, number_4, numbers_hash)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      (seller_id, buyer_name, buyer_phone_number, number_1, number_2, number_3, number_4, numbers_hash, metodo_pago)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const [result] = await connection.execute<ResultSetHeader>(query, [
@@ -86,6 +91,7 @@ export async function createTicket(data: CreateTicketData): Promise<number> {
       sortedNumbers[2],
       sortedNumbers[3],
       numbersHash,
+      paymentMethod,
     ]);
     
     if (result.insertId) {

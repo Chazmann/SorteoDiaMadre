@@ -24,13 +24,14 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Ticket as TicketIcon, Dices } from "lucide-react";
+import { Loader2, Ticket as TicketIcon, Dices, CreditCard } from "lucide-react";
 import { Seller } from "@/lib/types";
 
 const formSchema = z.object({
   sellerId: z.string().min(1, "Debes seleccionar un vendedor."),
   buyerName: z.string().min(2, "El nombre del comprador debe tener al menos 2 caracteres."),
   buyerPhoneNumber: z.string().regex(/^\+?[0-9\s-]{7,15}$/, "INGRESAR UN NÚMERO VÁLIDO."),
+  paymentMethod: z.string().min(1, "Debes seleccionar una forma de pago."),
 });
 
 export type TicketFormValues = z.infer<typeof formSchema>;
@@ -40,6 +41,7 @@ interface TicketFormProps {
     sellerId: number;
     buyerName: string;
     buyerPhoneNumber: string;
+    paymentMethod: string;
   }, numbers: number[]) => void;
   isLoading: boolean;
   generateUniqueNumbers: () => number[];
@@ -55,6 +57,7 @@ export function TicketForm({ onSubmit, isLoading, generateUniqueNumbers, sellers
       sellerId: "",
       buyerName: "",
       buyerPhoneNumber: "",
+      paymentMethod: "",
     },
   });
 
@@ -69,6 +72,7 @@ export function TicketForm({ onSubmit, isLoading, generateUniqueNumbers, sellers
           buyerName: values.buyerName,
           buyerPhoneNumber: values.buyerPhoneNumber,
           sellerId: parseInt(values.sellerId),
+          paymentMethod: values.paymentMethod,
       }, generatedNumbers);
       setGeneratedNumbers(null);
       form.reset();
@@ -140,6 +144,29 @@ export function TicketForm({ onSubmit, isLoading, generateUniqueNumbers, sellers
               )}
             />
             
+            <FormField
+              control={form.control}
+              name="paymentMethod"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Forma de Pago</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                         <CreditCard className="w-4 h-4 mr-2" />
+                        <SelectValue placeholder="Selecciona una forma de pago..." />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="Mercado Pago">Mercado Pago</SelectItem>
+                      <SelectItem value="Efectivo">Efectivo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             {generatedNumbers && (
               <div className="p-4 bg-muted rounded-lg text-center">
                 <p className="text-sm text-muted-foreground mb-2">Números de la suerte generados:</p>

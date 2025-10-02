@@ -114,6 +114,10 @@ export function TicketDetailsModal({ ticket, isOpen, onOpenChange }: TicketDetai
                 <p className="text-muted-foreground">Fecha de sorteo</p>
                 <p className="font-semibold">{localTicket.drawingDate}</p>
              </div>
+              <div className="space-y-1">
+                <p className="text-muted-foreground">Forma de Pago</p>
+                <p className="font-semibold">{localTicket.paymentMethod || 'N/A'}</p>
+             </div>
            </div>
         </div>
       </DialogContent>

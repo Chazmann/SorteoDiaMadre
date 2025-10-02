@@ -4,16 +4,19 @@
 import * as React from 'react';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Ticket, Prize } from '@/lib/types';
+import { Ticket, Prize, Seller } from '@/lib/types';
 import { Tab, Tabs, TabList, TabPanel } from 'react-tabs';
 import 'react-tabs/style/react-tabs.css';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { FileDown, Pencil, Shield, Menu, Home as HomeIcon } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { FileDown, Pencil, Shield, Menu, Home as HomeIcon, Users, BarChart } from 'lucide-react';
 import { getTickets } from '@/app/actions/ticket-actions';
 import { getPrizes, updatePrize } from '@/app/actions/prize-actions';
+import { getSellers } from '@/app/actions/seller-actions';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import {
@@ -49,7 +52,6 @@ function AdminPrizeCard({ prize, onEdit }: AdminPrizeCardProps) {
     const [imageSrc, setImageSrc] = useState<string | null>(null);
 
     useEffect(() => {
-        // Set the image source on the client side to avoid hydration issues with Data URLs
         setImageSrc(prize.image_url || GENERIC_PRIZE_IMAGE_URL);
     }, [prize.image_url]);
 
@@ -85,23 +87,27 @@ function AdminPrizeCard({ prize, onEdit }: AdminPrizeCardProps) {
 export default function AdminPage() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [prizes, setPrizes] = useState<Prize[]>([]);
+  const [sellers, setSellers] = useState<Seller[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingPrize, setEditingPrize] = useState<Prize | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [statsSellerFilter, setStatsSellerFilter] = useState('todos');
 
   useEffect(() => {
     async function fetchData() {
         setLoading(true);
         try {
-            const [dbTickets, dbPrizes] = await Promise.all([
+            const [dbTickets, dbPrizes, dbSellers] = await Promise.all([
                 getTickets(),
-                getPrizes()
+                getPrizes(),
+                getSellers(),
             ]);
             setTickets(dbTickets);
             setPrizes(dbPrizes);
+            setSellers(dbSellers);
         } catch (err) {
             console.error("Failed to load data", err);
             toast({
@@ -119,13 +125,14 @@ export default function AdminPage() {
   const handleExportPDF = () => {
     const doc = new jsPDF();
     doc.autoTable({
-      head: [['Ticket #', 'Vendido por', 'Comprador', 'Teléfono', 'Números']],
+      head: [['Ticket #', 'Vendido por', 'Comprador', 'Teléfono', 'Números', 'Forma de Pago']],
       body: tickets.map(ticket => [
         ticket.id,
         ticket.sellerName,
         ticket.buyerName,
         ticket.buyerPhoneNumber,
         ticket.numbers.join(', '),
+        ticket.paymentMethod || 'N/A'
       ]),
     });
     doc.save('tickets.pdf');
@@ -162,7 +169,6 @@ export default function AdminPage() {
       setIsSaving(false);
       
       if (result.success) {
-        // Fetch prizes again to get the latest data including the updated one
         const updatedPrizes = await getPrizes();
         setPrizes(updatedPrizes);
         
@@ -177,6 +183,22 @@ export default function AdminPage() {
   };
   
   const sortedTickets = [...tickets].sort((a,b) => parseInt(a.id) - parseInt(b.id));
+
+  // Calculate stats
+  const sellerStats = sellers.map(seller => {
+      const sellerTickets = tickets.filter(ticket => ticket.sellerName === seller.name);
+      return {
+          id: seller.id,
+          name: seller.name,
+          ticketsSold: sellerTickets.length,
+          totalCollected: sellerTickets.length * 5000, // Assuming 5000 per ticket
+      };
+  });
+  
+  const filteredStats = statsSellerFilter === 'todos'
+    ? sellerStats
+    : sellerStats.filter(stat => stat.name === statsSellerFilter);
+
 
   if (loading) {
     return (
@@ -224,6 +246,7 @@ export default function AdminPage() {
         <TabList>
           <Tab>Tickets Asignados</Tab>
           <Tab>Gestionar Premios</Tab>
+          <Tab>Estadísticas</Tab>
         </TabList>
 
         <TabPanel>
@@ -249,7 +272,8 @@ export default function AdminPage() {
                       <TableHead>Vendido por</TableHead>
                       <TableHead>Comprador</TableHead>
                       <TableHead>Teléfono</TableHead>
-                      <TableHead>Números Asignados</TableHead>
+                      <TableHead>Números</TableHead>
+                      <TableHead>Forma de Pago</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -263,11 +287,12 @@ export default function AdminPage() {
                           <div className="flex gap-2">
                             {ticket.numbers.map((num, i) => (
                               <span key={i} className="font-mono bg-muted px-2 py-1 rounded-md">
-                                {String(num).padStart(3, '0')}
+                                {String(num).padStart(3, '0')
                               </span>
                             ))}
                           </div>
                         </TableCell>
+                        <TableCell>{ticket.paymentMethod || 'N/A'}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -293,6 +318,68 @@ export default function AdminPage() {
                 </div>
              </CardContent>
           </Card>
+        </TabPanel>
+
+        <TabPanel>
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <BarChart className="w-6 h-6" />
+                        Estadísticas de Venta
+                    </CardTitle>
+                    <CardDescription>
+                        Visualiza la cantidad de tickets vendidos y el total recaudado por cada vendedor.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="flex justify-end mb-4">
+                        <div className="flex items-center gap-2">
+                            <Label htmlFor="stats-seller-filter">Filtrar por vendedor:</Label>
+                            <Select value={statsSellerFilter} onValueChange={setStatsSellerFilter}>
+                                <SelectTrigger id="stats-seller-filter" className="w-[200px]">
+                                    <SelectValue placeholder="Seleccionar..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="todos">Todos los Vendedores</SelectItem>
+                                    {sellers.map((seller) => (
+                                        <SelectItem key={seller.id} value={seller.name}>
+                                            {seller.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Vendedor</TableHead>
+                                <TableHead className="text-right">Tickets Vendidos</TableHead>
+                                <TableHead className="text-right">Total Recaudado</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {filteredStats.map(stat => (
+                                <TableRow key={stat.id}>
+                                    <TableCell className="font-semibold flex items-center gap-2">
+                                        <Users className="w-4 h-4 text-muted-foreground" />
+                                        {stat.name}
+                                    </TableCell>
+                                    <TableCell className="text-right font-mono">{stat.ticketsSold}</TableCell>
+                                    <TableCell className="text-right font-mono">${stat.totalCollected.toLocaleString('es-AR')}</TableCell>
+                                </TableRow>
+                            ))}
+                             {filteredStats.length === 0 && (
+                                <TableRow>
+                                    <TableCell colSpan={3} className="text-center text-muted-foreground">
+                                        No hay datos para mostrar con el filtro seleccionado.
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
         </TabPanel>
       </Tabs>
 
@@ -341,7 +428,6 @@ export default function AdminPage() {
   );
 }
 
-// React-tabs requires some specific CSS. We can add it here.
 const adminPageStyle = `
   .react-tabs__tab-list {
     border-bottom: 1px solid #aaa;
@@ -386,5 +472,3 @@ if (styleSheet) {
     styleSheet.innerText = adminPageStyle;
     document.head.appendChild(styleSheet);
 }
-
-    

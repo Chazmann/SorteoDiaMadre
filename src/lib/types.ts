@@ -8,6 +8,7 @@ export interface Ticket {
   numbers: number[];
   imageUrl: string;
   drawingDate: string;
+  paymentMethod?: string;
 }
 
 export interface Prize {
