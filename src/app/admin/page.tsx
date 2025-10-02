@@ -3,6 +3,7 @@
 
 import * as React from 'react';
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Ticket, Prize } from '@/lib/types';
 import { Tab, Tabs, TabList, TabPanel } from 'react-tabs';
 import 'react-tabs/style/react-tabs.css';
@@ -10,11 +11,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { FileDown, Pencil, Shield } from 'lucide-react';
+import { FileDown, Pencil, Shield, Menu, Home as HomeIcon } from 'lucide-react';
 import { getTickets } from '@/app/actions/ticket-actions';
 import { getPrizes, updatePrize } from '@/app/actions/prize-actions';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
 
 const GENERIC_PRIZE_IMAGE_URL = "/generic-prize.jpg";
 
@@ -135,6 +143,30 @@ export default function AdminPage() {
 
   return (
     <div className="container mx-auto p-4 md:p-8">
+      <div className="absolute top-4 right-4">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="icon">
+              <Menu className="h-6 w-6" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem asChild>
+              <Link href="/">
+                <HomeIcon className="mr-2 h-4 w-4" />
+                <span>Inicio</span>
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/admin">
+                <Shield className="mr-2 h-4 w-4" />
+                <span>Panel de Administración</span>
+              </Link>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
       <header className="text-center mb-12">
         <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-primary flex items-center justify-center gap-3">
             <Shield />
@@ -323,5 +355,7 @@ if (styleSheet) {
     styleSheet.innerText = adminPageStyle;
     document.head.appendChild(styleSheet);
 }
+
+    
 
     
