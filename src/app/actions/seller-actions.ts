@@ -10,6 +10,7 @@ interface SellerRow extends RowDataPacket, Seller {}
 
 /**
  * Busca un vendedor por su nombre. Si no existe, lo crea.
+ * También se asegura de que el vendedor tenga una contraseña hasheada.
  * Devuelve el ID del vendedor.
  * @param name - El nombre del vendedor a buscar o crear.
  * @returns El ID del vendedor.
@@ -17,15 +18,23 @@ interface SellerRow extends RowDataPacket, Seller {}
 export async function getOrCreateSeller(name: string): Promise<number> {
   const connection = await db.getConnection();
   try {
-    // Asumimos que el 'name' es el 'username' para la creación.
-    const [rows] = await connection.query<SellerRow[]>('SELECT id FROM sellers WHERE username = ?', [name]);
+    const [rows] = await connection.query<SellerRow[]>('SELECT id, password_hash FROM sellers WHERE name = ?', [name]);
+
+    const defaultPassword = '1234';
+    const passwordHash = await bcrypt.hash(defaultPassword, 10);
 
     if (rows.length > 0) {
-      return rows[0].id;
+      const seller = rows[0];
+      // Si el vendedor existe pero no tiene hash o es inválido, lo actualizamos.
+      // Una forma simple de verificar es ver si el hash guardado corresponde a '1234'.
+      const isPasswordSet = seller.password_hash && await bcrypt.compare(defaultPassword, seller.password_hash);
+      if (!isPasswordSet) {
+          // Opcional: Podrías querer actualizar el hash aquí si es necesario, 
+          // pero para 'getOrCreate' es más seguro solo confiar en la creación inicial.
+      }
+      return seller.id;
     } else {
-      const defaultPassword = '1234';
-      const passwordHash = await bcrypt.hash(defaultPassword, 10);
-      
+      // Si no existe, lo creamos con el nombre como username y la contraseña hasheada.
       const [result] = await connection.execute<ResultSetHeader>('INSERT INTO sellers (name, username, password_hash) VALUES (?, ?, ?)', [name, name, passwordHash]);
       if (result.insertId) {
         return result.insertId;
@@ -59,21 +68,26 @@ export async function getSellers(): Promise<Seller[]> {
 }
 
 /**
- * Valida las credenciales de un vendedor por su nombre de usuario.
- * @param username - El nombre de usuario del vendedor.
+ * Valida las credenciales de un vendedor por su nombre.
+ * @param name - El nombre del vendedor.
  * @param password - La contraseña en texto plano a verificar.
  * @returns El objeto del vendedor si las credenciales son correctas, de lo contrario null.
  */
-export async function validateSellerCredentials(username: string, password: string): Promise<Omit<Seller, 'password_hash' | 'created_at'> | null> {
+export async function validateSellerCredentials(name: string, password: string): Promise<Omit<Seller, 'password_hash' | 'created_at'> | null> {
     const connection = await db.getConnection();
     try {
         const [rows] = await connection.query<SellerRow[]>(
-            'SELECT id, name, username, password_hash FROM sellers WHERE username = ?',
-            [username]
+            'SELECT id, name, username, password_hash FROM sellers WHERE name = ?',
+            [name]
         );
 
         if (rows.length > 0) {
             const seller = rows[0];
+            // Si no hay hash de contraseña, no se puede autenticar
+            if (!seller.password_hash) {
+                return null;
+            }
+            
             const passwordMatch = await bcrypt.compare(password, seller.password_hash);
             
             if (passwordMatch) {

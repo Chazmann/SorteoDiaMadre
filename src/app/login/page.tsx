@@ -32,7 +32,7 @@ import {
 
 
 const formSchema = z.object({
-  username: z.string().min(1, 'Debes seleccionar un vendedor.'),
+  name: z.string().min(1, 'Debes seleccionar un vendedor.'),
   password: z.string().min(1, 'Debes ingresar tu contraseña.'),
 });
 
@@ -46,7 +46,7 @@ export default function LoginPage() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      username: '',
+      name: '',
       password: '',
     },
   });
@@ -70,7 +70,7 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       const seller = await validateSellerCredentials(
-        values.username,
+        values.name,
         values.password
       );
 
@@ -127,7 +127,7 @@ export default function LoginPage() {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                <FormField
                 control={form.control}
-                name="username"
+                name="name"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Vendedor</FormLabel>
@@ -140,7 +140,7 @@ export default function LoginPage() {
                        </FormControl>
                        <SelectContent>
                          {sellers.map((seller) => (
-                            <SelectItem key={seller.id} value={seller.username}>
+                            <SelectItem key={seller.id} value={seller.name}>
                                 {seller.name}
                             </SelectItem>
                          ))}
