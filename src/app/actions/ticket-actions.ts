@@ -42,7 +42,7 @@ function mapRowToTicket(row: TicketRow): Ticket {
 
 export async function getTickets(): Promise<Ticket[]> {
   try {
-    // Se ajusta la consulta para que coincida con las columnas reales. Se omite 'seller_name'
+    // Se ajusta la consulta para que coincida con las columnas reales. Se omite cualquier referencia a vendedor.
     const [rows] = await db.query<TicketRow[]>('SELECT id, buyer_name, buyer_phone_number, number_1, number_2, number_3, number_4, numbers_hash FROM tickets ORDER BY id DESC');
     if (!rows) {
         return [];
@@ -61,7 +61,7 @@ export async function createTicket(data: CreateTicketData): Promise<number> {
   const sortedNumbers = [...numbers].sort((a, b) => a - b);
   const numbersHash = sortedNumbers.join(',');
 
-  // La consulta INSERT ahora usa las columnas correctas: buyer_name, buyer_phone_number, y los 4 números separados.
+  // La consulta INSERT ahora usa las columnas correctas y omite `seller_id`.
   const query = `
     INSERT INTO tickets 
     (buyer_name, buyer_phone_number, number_1, number_2, number_3, number_4, numbers_hash)
