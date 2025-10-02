@@ -21,11 +21,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Gift, Menu, Home as HomeIcon, Shield } from "lucide-react";
-import { getTickets, createTicket, getUsedNumberHashes } from "@/app/actions/ticket-actions";
+import { getTickets, createTicket, getUsedNumbers } from "@/app/actions/ticket-actions";
 import { getSellers } from "@/app/actions/seller-actions";
 
 
 const MAX_TICKETS = 250;
+const MAX_NUMBER = 999;
 
 type TicketFormSubmitValues = {
     sellerId: number;
@@ -38,7 +39,7 @@ export default function Home() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [generatedNumbers, setGeneratedNumbers] = useState(new Set<string>());
+  const [usedNumbers, setUsedNumbers] = useState(new Set<number>());
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
   const [isPrizeModalOpen, setIsPrizeModalOpen] = useState(false);
@@ -48,13 +49,13 @@ export default function Home() {
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        const [dbTickets, usedHashes, dbSellers] = await Promise.all([
+        const [dbTickets, dbUsedNumbers, dbSellers] = await Promise.all([
           getTickets(),
-          getUsedNumberHashes(),
+          getUsedNumbers(),
           getSellers(),
         ]);
         setTickets(dbTickets);
-        setGeneratedNumbers(new Set(usedHashes));
+        setUsedNumbers(dbUsedNumbers);
         setSellers(dbSellers);
       } catch (error) {
         console.error("Error fetching initial data:", error);
@@ -69,30 +70,28 @@ export default function Home() {
   }, [toast]);
 
   const generateUniqueNumbers = (): number[] => {
-    let newNumbers: number[];
-    let numbersKey: string;
+    let newNumbers = new Set<number>();
     let attempts = 0;
-    const MAX_ATTEMPTS = 50;
+    const MAX_ATTEMPTS = 1000; // Increase attempts for safety
 
-    do {
-      const numbers = new Set<number>();
-      while (numbers.size < 4) {
-        numbers.add(Math.floor(Math.random() * 1000));
-      }
-      newNumbers = Array.from(numbers);
-      numbersKey = [...newNumbers].sort((a, b) => a - b).join(',');
-      attempts++;
-      if (attempts > MAX_ATTEMPTS) {
+    while (newNumbers.size < 4 && attempts < MAX_ATTEMPTS) {
+        const randomNumber = Math.floor(Math.random() * (MAX_NUMBER + 1));
+        if (!usedNumbers.has(randomNumber) && !newNumbers.has(randomNumber)) {
+            newNumbers.add(randomNumber);
+        }
+        attempts++;
+    }
+
+    if (newNumbers.size < 4) {
         toast({
-          variant: "destructive",
-          title: "Error",
-          description: "No se pudieron generar números únicos. Hay muchos tickets generados. Intenta de nuevo.",
+            variant: "destructive",
+            title: "Error de Generación",
+            description: "No se pudieron generar 4 números únicos. Es posible que ya no haya números disponibles.",
         });
         throw new Error("Could not generate a unique set of numbers.");
-      }
-    } while (generatedNumbers.has(numbersKey));
-
-    return newNumbers;
+    }
+    
+    return Array.from(newNumbers);
   };
 
   const handleFormSubmit = async (values: TicketFormSubmitValues, newNumbers: number[]) => {
@@ -108,8 +107,6 @@ export default function Home() {
     setIsLoading(true);
 
     try {
-      const numbersKey = [...newNumbers].sort((a, b) => a - b).join(',');
-      
       const newTicketId = await createTicket({ 
           sellerId: values.sellerId, 
           buyerName: values.buyerName, 
@@ -143,7 +140,9 @@ export default function Home() {
           paymentMethod: values.paymentMethod,
         };
         setTickets(prevTickets => [newTicket, ...prevTickets]);
-        setGeneratedNumbers(prev => new Set(prev).add(numbersKey));
+        const updatedUsedNumbers = new Set(usedNumbers);
+        newNumbers.forEach(num => updatedUsedNumbers.add(num));
+        setUsedNumbers(updatedUsedNumbers);
         toast({
           title: "¡Suerte!",
           description: "Tu ticket de la suerte ha sido generado.",
@@ -156,8 +155,8 @@ export default function Home() {
       const isDuplicateError = error.message?.includes('Duplicate entry');
       toast({
         variant: "destructive",
-        title: isDuplicateError ? "Números Duplicados" : "Falló la Creación del Ticket",
-        description: isDuplicateError ? "Esa combinación de números ya fue tomada. Por favor, genera una nueva." : "Hubo un error al guardar tu ticket en la base de datos. Intenta de nuevo.",
+        title: isDuplicateError ? "Número Duplicado" : "Falló la Creación del Ticket",
+        description: isDuplicateError ? "Uno de los números generados ya fue tomado. Por favor, genera una nueva combinación." : "Hubo un error al guardar tu ticket en la base de datos. Intenta de nuevo.",
       });
     } finally {
       setIsLoading(false);

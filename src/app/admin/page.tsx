@@ -472,5 +472,3 @@ if (styleSheet) {
     styleSheet.innerText = adminPageStyle;
     document.head.appendChild(styleSheet);
 }
-
-    
