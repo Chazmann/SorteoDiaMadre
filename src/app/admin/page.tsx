@@ -38,6 +38,8 @@ export default function AdminPage() {
   const [editingPrize, setEditingPrize] = useState<Prize | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchData() {
@@ -80,18 +82,41 @@ export default function AdminPage() {
 
   const handleEditPrize = (prize: Prize) => {
     setEditingPrize({ ...prize });
+    setPreviewImage(prize.image_url); // Set initial preview
+    setSelectedFile(null);
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreviewImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleSaveChanges = async () => {
     if (editingPrize) {
       setIsSaving(true);
-      const result = await updatePrize(editingPrize.id, editingPrize.title, editingPrize.image_url);
+      
+      let imageUrlToSave = editingPrize.image_url;
+      if (selectedFile && previewImage) {
+        imageUrlToSave = previewImage;
+      }
+
+      const result = await updatePrize(editingPrize.id, editingPrize.title, imageUrlToSave);
       setIsSaving(false);
       
       if (result.success) {
-        setPrizes(prizes.map(p => (p.id === editingPrize.id ? editingPrize : p)));
+        const updatedPrize = { ...editingPrize, image_url: imageUrlToSave };
+        setPrizes(prizes.map(p => (p.id === editingPrize.id ? updatedPrize : p)));
         toast({ title: "Éxito", description: result.message });
         setEditingPrize(null);
+        setSelectedFile(null);
+        setPreviewImage(null);
       } else {
         toast({ variant: "destructive", title: "Error", description: result.message });
       }
@@ -224,12 +249,20 @@ export default function AdminPage() {
                         />
                      </div>
                      <div>
-                        <label className="text-sm font-medium">URL de la Imagen</label>
+                        <label className="text-sm font-medium">Imagen del Premio</label>
                         <Input 
-                            value={editingPrize.image_url}
-                            onChange={(e) => setEditingPrize({...editingPrize, image_url: e.target.value})}
+                            type="file"
+                            accept="image/*"
+                            onChange={handleFileChange}
+                            className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
                         />
                      </div>
+                     {previewImage && (
+                        <div>
+                          <p className="text-sm font-medium mb-2">Vista Previa:</p>
+                          <img src={previewImage} alt="Vista previa" className="rounded-md w-full h-auto object-cover aspect-video"/>
+                        </div>
+                     )}
                      <div className="flex justify-end gap-2">
                         <Button variant="outline" onClick={() => setEditingPrize(null)}>Cancelar</Button>
                         <Button onClick={handleSaveChanges} disabled={isSaving}>
