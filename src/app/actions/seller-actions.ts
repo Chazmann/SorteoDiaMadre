@@ -4,7 +4,7 @@
 import db from '@/lib/db';
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { Seller } from '@/lib/types';
-
+import bcrypt from 'bcryptjs';
 
 interface SellerRow extends RowDataPacket, Seller {}
 
@@ -22,8 +22,10 @@ export async function getOrCreateSeller(name: string): Promise<number> {
     if (rows.length > 0) {
       return rows[0].id;
     } else {
-      // Se asume una contraseña por defecto si se crea un vendedor, o se puede modificar para requerirla.
-      const [result] = await connection.execute<ResultSetHeader>('INSERT INTO sellers (name, password) VALUES (?, ?)', [name, '1234']);
+      const defaultPassword = '1234';
+      const passwordHash = await bcrypt.hash(defaultPassword, 10);
+      
+      const [result] = await connection.execute<ResultSetHeader>('INSERT INTO sellers (name, password_hash) VALUES (?, ?)', [name, passwordHash]);
       if (result.insertId) {
         return result.insertId;
       } else {
@@ -58,19 +60,24 @@ export async function getSellers(): Promise<Seller[]> {
 /**
  * Valida las credenciales de un vendedor.
  * @param sellerId - El ID del vendedor.
- * @param password - La contraseña a verificar.
+ * @param password - La contraseña en texto plano a verificar.
  * @returns El objeto del vendedor si las credenciales son correctas, de lo contrario null.
  */
 export async function validateSellerCredentials(sellerId: number, password: string): Promise<Seller | null> {
     const connection = await db.getConnection();
     try {
         const [rows] = await connection.query<SellerRow[]>(
-            'SELECT id, name FROM sellers WHERE id = ? AND password = ?',
-            [sellerId, password]
+            'SELECT id, name, password_hash FROM sellers WHERE id = ?',
+            [sellerId]
         );
 
         if (rows.length > 0) {
-            return { id: rows[0].id, name: rows[0].name };
+            const seller = rows[0];
+            const passwordMatch = await bcrypt.compare(password, seller.password_hash);
+            
+            if (passwordMatch) {
+                return { id: seller.id, name: seller.name };
+            }
         }
         return null;
     } catch (error) {
