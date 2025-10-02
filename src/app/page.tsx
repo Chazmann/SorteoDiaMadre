@@ -41,6 +41,7 @@ export default function Home() {
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
   const [isPrizeModalOpen, setIsPrizeModalOpen] = useState(false);
+  const [activeSellerFilter, setActiveSellerFilter] = useState<string>('todos');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -174,6 +175,10 @@ export default function Home() {
     setSelectedTicket(ticket);
     setIsTicketModalOpen(true);
   };
+  
+  const filteredTickets = activeSellerFilter === 'todos' 
+    ? tickets 
+    : tickets.filter(ticket => ticket.sellerName === activeSellerFilter);
 
   return (
     <>
@@ -240,7 +245,13 @@ export default function Home() {
         </section>
 
         {tickets.length > 0 && (
-          <TicketGallery tickets={tickets} onCardClick={handleCardClick} />
+          <TicketGallery 
+            tickets={filteredTickets} 
+            onCardClick={handleCardClick}
+            sellers={sellers}
+            activeFilter={activeSellerFilter}
+            onFilterChange={setActiveSellerFilter}
+          />
         )}
       </main>
       <footer className="text-center p-4 text-muted-foreground">

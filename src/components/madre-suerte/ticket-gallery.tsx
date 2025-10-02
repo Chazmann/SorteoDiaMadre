@@ -3,11 +3,19 @@
 
 import Image from "next/image";
 import * as React from "react";
-import type { Ticket } from "@/lib/types";
+import type { Ticket, Seller } from "@/lib/types";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { motion } from "framer-motion";
 import { generateMotherSDayImage } from "@/ai/flows/generate-mother-s-day-image";
-import { Loader2 } from "lucide-react";
+import { Loader2, Users } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
 
 interface TicketCardProps {
@@ -79,16 +87,40 @@ const TicketCard: React.FC<TicketCardProps> = ({ ticket, onClick }) => {
 interface TicketGalleryProps {
   tickets: Ticket[];
   onCardClick: (ticket: Ticket) => void;
+  sellers: Seller[];
+  activeFilter: string;
+  onFilterChange: (value: string) => void;
 }
 
-export function TicketGallery({ tickets, onCardClick }: TicketGalleryProps) {
+export function TicketGallery({ tickets, onCardClick, sellers, activeFilter, onFilterChange }: TicketGalleryProps) {
   const sortedTickets = [...tickets].sort((a,b) => parseInt(b.id) - parseInt(a.id));
   
   return (
     <section className="mt-16">
-      <h2 className="text-3xl font-bold tracking-tight text-center mb-8">
-        Galería de tickets generados
-      </h2>
+      <div className="flex flex-col sm:flex-row justify-center items-center gap-4 sm:gap-8 mb-8">
+        <h2 className="text-3xl font-bold tracking-tight text-center">
+          Galería de tickets generados
+        </h2>
+        <div className="flex items-center gap-2">
+            <Label htmlFor="seller-filter" className="flex items-center gap-2 text-muted-foreground">
+                <Users className="w-4 h-4" />
+                Filtrar por vendedor:
+            </Label>
+            <Select value={activeFilter} onValueChange={onFilterChange}>
+                <SelectTrigger id="seller-filter" className="w-[180px]">
+                    <SelectValue placeholder="Seleccionar..." />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="todos">Mostrar Todos</SelectItem>
+                    {sellers.map((seller) => (
+                        <SelectItem key={seller.id} value={seller.name}>
+                            {seller.name}
+                        </SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+        </div>
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
         {sortedTickets.map((ticket, index) => (
           <motion.div
@@ -101,6 +133,11 @@ export function TicketGallery({ tickets, onCardClick }: TicketGalleryProps) {
           </motion.div>
         ))}
       </div>
+       {sortedTickets.length === 0 && (
+            <div className="col-span-full text-center py-12 text-muted-foreground">
+                <p>No hay tickets que coincidan con el filtro seleccionado.</p>
+            </div>
+       )}
     </section>
   );
 }
