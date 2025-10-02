@@ -21,6 +21,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Gift, Menu, Home as HomeIcon, Shield } from "lucide-react";
+import { getTickets, createTicket, getUsedNumberHashes } from "@/app/actions/ticket-actions";
 
 const MAX_TICKETS = 250;
 
@@ -34,53 +35,52 @@ export default function Home() {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Save tickets to localStorage whenever they change
-    if (tickets.length > 0) {
-      localStorage.setItem("tickets", JSON.stringify(tickets));
-    }
-  }, [tickets]);
-
-  useEffect(() => {
-    // Load tickets from localStorage on initial render
-    const savedTickets = localStorage.getItem("tickets");
-    if (savedTickets) {
-      const parsedTickets: Ticket[] = JSON.parse(savedTickets);
-      setTickets(parsedTickets);
-      const numbersKeys = new Set(
-        parsedTickets.map(t => [...t.numbers].sort((a,b) => a-b).join(','))
-      );
-      setGeneratedNumbers(numbersKeys);
-    }
+    const fetchInitialData = async () => {
+      try {
+        const [dbTickets, usedHashes] = await Promise.all([
+          getTickets(),
+          getUsedNumberHashes(),
+        ]);
+        setTickets(dbTickets);
+        setGeneratedNumbers(new Set(usedHashes));
+      } catch (error) {
+        console.error("Error fetching initial data:", error);
+        toast({
+          variant: "destructive",
+          title: "Error de Carga",
+          description: "No se pudieron cargar los datos de la base de datos.",
+        });
+      }
+    };
+    fetchInitialData();
   }, []);
 
   const generateUniqueNumbers = (): number[] => {
-      let newNumbers: number[];
-      let numbersKey: string;
-      let attempts = 0;
-      const MAX_ATTEMPTS = 50; // Increased attempts
+    let newNumbers: number[];
+    let numbersKey: string;
+    let attempts = 0;
+    const MAX_ATTEMPTS = 50;
 
-      do {
-        const numbers = new Set<number>();
-        while (numbers.size < 4) {
-          numbers.add(Math.floor(Math.random() * 1000));
-        }
-        newNumbers = Array.from(numbers);
-        numbersKey = [...newNumbers].sort((a, b) => a - b).join(',');
-        attempts++;
-        if (attempts > MAX_ATTEMPTS) {
-          toast({
-            variant: "destructive",
-            title: "Error",
-            description: "No se pudieron generar números únicos. Hay muchos tickets generados. Intenta de nuevo.",
-          });
-          // Return an empty array or throw an error to signify failure
-          throw new Error("Could not generate a unique set of numbers.");
-        }
-      } while (generatedNumbers.has(numbersKey));
+    do {
+      const numbers = new Set<number>();
+      while (numbers.size < 4) {
+        numbers.add(Math.floor(Math.random() * 1000));
+      }
+      newNumbers = Array.from(numbers);
+      numbersKey = [...newNumbers].sort((a, b) => a - b).join(',');
+      attempts++;
+      if (attempts > MAX_ATTEMPTS) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "No se pudieron generar números únicos. Hay muchos tickets generados. Intenta de nuevo.",
+        });
+        throw new Error("Could not generate a unique set of numbers.");
+      }
+    } while (generatedNumbers.has(numbersKey));
 
-      return newNumbers;
+    return newNumbers;
   };
-
 
   const handleFormSubmit = async (values: TicketFormValues, newNumbers: number[]) => {
     if (tickets.length >= MAX_TICKETS) {
@@ -91,11 +91,13 @@ export default function Home() {
       });
       return;
     }
-    
+
     setIsLoading(true);
 
     try {
       const numbersKey = [...newNumbers].sort((a, b) => a - b).join(',');
+      
+      // Doble verificación por si acaso
       if (generatedNumbers.has(numbersKey)) {
         toast({
           variant: "destructive",
@@ -106,17 +108,17 @@ export default function Home() {
         return;
       }
       
-      const nextTicketId = String(tickets.length + 1).padStart(3, '0');
+      const newTicketId = await createTicket({ ...values, numbers: newNumbers });
 
       const result = await generateMotherSDayImage({
         ...values,
         numbers: newNumbers,
-        ticketId: nextTicketId,
+        ticketId: String(newTicketId).padStart(3, '0'),
       });
-
+      
       if (result.image) {
         const newTicket: Ticket = {
-          id: nextTicketId,
+          id: String(newTicketId),
           ...values,
           numbers: newNumbers,
           imageUrl: result.image,
@@ -131,12 +133,13 @@ export default function Home() {
       } else {
         throw new Error("Image generation failed.");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
+      const isDuplicateError = error.message?.includes('Duplicate entry');
       toast({
         variant: "destructive",
-        title: "Falló la Generación",
-        description: "Hubo un error al generar tu imagen. Por favor, intenta de nuevo.",
+        title: isDuplicateError ? "Números Duplicados" : "Falló la Creación del Ticket",
+        description: isDuplicateError ? "Esa combinación de números ya fue tomada. Por favor, genera una nueva." : "Hubo un error al guardar tu ticket en la base de datos. Intenta de nuevo.",
       });
     } finally {
       setIsLoading(false);
@@ -195,21 +198,20 @@ export default function Home() {
 
         {/* Visible only on mobile */}
         <div className="md:hidden text-center mb-8">
-            <Button onClick={() => setIsPrizeModalOpen(true)}>
-                <Gift className="mr-2"/>
-                Ver Premios
-            </Button>
+          <Button onClick={() => setIsPrizeModalOpen(true)}>
+            <Gift className="mr-2" />
+            Ver Premios
+          </Button>
         </div>
 
-
         <section className="mt-12">
-           <div className="max-w-lg mx-auto">
-            <TicketForm 
-              onSubmit={handleFormSubmit} 
-              isLoading={isLoading} 
+          <div className="max-w-lg mx-auto">
+            <TicketForm
+              onSubmit={handleFormSubmit}
+              isLoading={isLoading}
               generateUniqueNumbers={generateUniqueNumbers}
             />
-           </div>
+          </div>
         </section>
 
         {tickets.length > 0 && (
@@ -225,7 +227,7 @@ export default function Home() {
         isOpen={isTicketModalOpen}
         onOpenChange={setIsTicketModalOpen}
       />
-      <PrizeModal 
+      <PrizeModal
         isOpen={isPrizeModalOpen}
         onOpenChange={setIsPrizeModalOpen}
       />

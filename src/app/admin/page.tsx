@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { FileDown, Pencil, Shield } from 'lucide-react';
+import { getTickets } from '@/app/actions/ticket-actions';
 
 // Mock implementation of jsPDF and autoTable for client-side rendering
 const jsPDF =
@@ -32,10 +33,15 @@ export default function AdminPage() {
   const [editingPrize, setEditingPrize] = useState<ImagePlaceholder | null>(null);
 
   useEffect(() => {
-    const savedTickets = localStorage.getItem('tickets');
-    if (savedTickets) {
-      setTickets(JSON.parse(savedTickets));
-    }
+    // Cargar tickets desde la base de datos
+    getTickets()
+      .then(setTickets)
+      .catch(err => {
+        console.error("Failed to load tickets", err);
+        alert("Error al cargar los tickets desde la base de datos.");
+      });
+
+    // Cargar premios (aún desde el archivo local, podría migrarse a DB)
     setPrizes(PlaceHolderImages.filter(img => img.id.startsWith('prize-')));
   }, []);
 
@@ -60,8 +66,8 @@ export default function AdminPage() {
 
   const handleSaveChanges = () => {
     if (editingPrize) {
-      // In a real app, you would have an API call here to save the changes.
-      // For this mock, we'll just update the state and show an alert.
+      // En una app real, aquí llamarías a una API para guardar en la tabla `prizes`
+      // Por ahora, solo actualizamos el estado local.
       setPrizes(prizes.map(p => (p.id === editingPrize.id ? editingPrize : p)));
       alert('Cambios guardados (simulado). En una app real, esto se guardaría en la base de datos.');
       setEditingPrize(null);
@@ -116,7 +122,7 @@ export default function AdminPage() {
                   <TableBody>
                     {sortedTickets.map(ticket => (
                       <TableRow key={ticket.id}>
-                        <TableCell className="font-semibold">{ticket.id}</TableCell>
+                        <TableCell className="font-semibold">{String(ticket.id).padStart(3, '0')}</TableCell>
                         <TableCell>{ticket.sellerName}</TableCell>
                         <TableCell>{ticket.buyerName}</TableCell>
                         <TableCell>{ticket.buyerPhoneNumber}</TableCell>
@@ -177,7 +183,7 @@ export default function AdminPage() {
                 <CardHeader>
                     <CardTitle>Editar Premio</CardTitle>
                     <CardDescription>Modifica la información del premio seleccionado.</CardDescription>
-                </CardHeader>
+                </Header>
                 <CardContent className="space-y-4">
                      <div>
                         <label className="text-sm font-medium">Título del Premio</label>
