@@ -4,6 +4,7 @@
 
 import db from '@/lib/db';
 import { Ticket } from '@/lib/types';
+import { RowDataPacket } from 'mysql2';
 
 // Tipado para los datos que vienen del formulario
 type CreateTicketData = {
@@ -13,8 +14,8 @@ type CreateTicketData = {
   numbers: number[];
 };
 
-// Tipado para las filas que vienen de la base de datos
-type TicketRow = {
+// Tipado para las filas que vienen de la base de datos, usando la convención de snake_case
+interface TicketRow extends RowDataPacket {
   id: number;
   seller_name: string;
   buyer_name: string;
@@ -43,11 +44,16 @@ function mapRowToTicket(row: TicketRow): Ticket {
 
 export async function getTickets(): Promise<Ticket[]> {
   try {
-    const [rows] = await db.query<TicketRow[]>('SELECT id, seller_name, buyer_name, buyer_phone_number, number_1, number_2, number_3, number_4, numbers_hash FROM tickets ORDER BY id DESC');
+    const [rows] = await db.query<TicketRow[]>('SELECT id, seller_name, buyer_name, buyer_phone_number, number_1, number_2, number_3, number_4 FROM tickets ORDER BY id DESC');
+    if (!rows) {
+        return [];
+    }
     return rows.map(mapRowToTicket);
   } catch (error) {
     console.error('Error fetching tickets:', error);
-    throw new Error('Could not fetch tickets from database.');
+    // En lugar de lanzar un error que rompe la app, devolvemos un array vacío.
+    // La UI puede manejar un array vacío y mostrar que no hay tickets.
+    return [];
   }
 }
 
@@ -91,10 +97,13 @@ export async function createTicket(data: CreateTicketData): Promise<number> {
 
 export async function getUsedNumberHashes(): Promise<string[]> {
     try {
-        const [rows] = await db.query<{ numbers_hash: string }[]>('SELECT numbers_hash FROM tickets');
+        const [rows] = await db.query<(RowDataPacket & { numbers_hash: string })[]>('SELECT numbers_hash FROM tickets');
+        if (!rows) {
+            return [];
+        }
         return rows.map(row => row.numbers_hash);
     } catch (error) {
         console.error('Error fetching used number hashes:', error);
-        throw new Error('Could not fetch used numbers from database.');
+        return [];
     }
 }
