@@ -8,13 +8,13 @@ import { RowDataPacket } from 'mysql2';
 
 // Tipado para los datos que vienen del formulario
 type CreateTicketData = {
-  sellerName: string; // Lo mantenemos por si se usa en otro lado, pero no se guardará en DB
+  sellerName: string; // Se mantiene en el tipo por la firma del formulario, pero no se usará.
   buyerName: string;
   buyerPhoneNumber: string;
   numbers: number[];
 };
 
-// Tipado para las filas que vienen de la base de datos
+// Tipado para las filas que vienen de la base de datos (sin vendedor)
 interface TicketRow extends RowDataPacket {
   id: number;
   buyer_name: string;
@@ -30,11 +30,11 @@ interface TicketRow extends RowDataPacket {
 function mapRowToTicket(row: TicketRow): Ticket {
   return {
     id: String(row.id),
-    sellerName: '', // Devolvemos un string vacío porque no lo estamos obteniendo de la DB
+    sellerName: '', // Siempre devolvemos un string vacío.
     buyerName: row.buyer_name,
     buyerPhoneNumber: row.buyer_phone_number,
     numbers: [row.number_1, row.number_2, row.number_3, row.number_4],
-    imageUrl: '', 
+    imageUrl: '', // Se genera en el cliente
     drawingDate: 'October 28, 2025',
   };
 }
@@ -42,7 +42,7 @@ function mapRowToTicket(row: TicketRow): Ticket {
 
 export async function getTickets(): Promise<Ticket[]> {
   try {
-    // Se ajusta la consulta para que coincida con las columnas reales. Se omite cualquier referencia a vendedor.
+    // La consulta ya no pide 'seller_id' o 'seller_name'
     const [rows] = await db.query<TicketRow[]>('SELECT id, buyer_name, buyer_phone_number, number_1, number_2, number_3, number_4, numbers_hash FROM tickets ORDER BY id DESC');
     if (!rows) {
         return [];
@@ -61,7 +61,7 @@ export async function createTicket(data: CreateTicketData): Promise<number> {
   const sortedNumbers = [...numbers].sort((a, b) => a - b);
   const numbersHash = sortedNumbers.join(',');
 
-  // La consulta INSERT ahora usa las columnas correctas y omite `seller_id`.
+  // La consulta INSERT ahora omite por completo la columna `seller_id`
   const query = `
     INSERT INTO tickets 
     (buyer_name, buyer_phone_number, number_1, number_2, number_3, number_4, numbers_hash)
@@ -88,6 +88,10 @@ export async function createTicket(data: CreateTicketData): Promise<number> {
     return insertId;
   } catch (error) {
     console.error('Error creating ticket:', error);
+    // Para que el usuario vea un error más claro en la UI
+    if ((error as any).code === 'ER_NO_DEFAULT_FOR_FIELD') {
+        throw new Error("La columna 'seller_id' no puede estar vacía. Por favor, ajuste la tabla en la base de datos para permitir valores nulos o asígnele un valor por defecto.");
+    }
     throw error;
   }
 }
