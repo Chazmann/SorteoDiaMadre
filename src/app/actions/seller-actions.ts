@@ -3,6 +3,8 @@
 
 import db from '@/lib/db';
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
+import { Seller } from '@/lib/types';
+
 
 interface SellerRow extends RowDataPacket {
   id: number;
@@ -18,14 +20,11 @@ interface SellerRow extends RowDataPacket {
 export async function getOrCreateSeller(name: string): Promise<number> {
   const connection = await db.getConnection();
   try {
-    // 1. Intentar encontrar el vendedor por nombre
     const [rows] = await connection.query<SellerRow[]>('SELECT id FROM sellers WHERE name = ?', [name]);
 
     if (rows.length > 0) {
-      // Vendedor encontrado, devolver su ID
       return rows[0].id;
     } else {
-      // 2. Vendedor no encontrado, crearlo
       const [result] = await connection.execute<ResultSetHeader>('INSERT INTO sellers (name) VALUES (?)', [name]);
       if (result.insertId) {
         return result.insertId;
@@ -35,9 +34,25 @@ export async function getOrCreateSeller(name: string): Promise<number> {
     }
   } catch (error) {
     console.error('Error in getOrCreateSeller:', error);
-    // Relanzar el error para que el llamador sepa que algo salió mal.
     throw new Error('Could not get or create seller.');
   } finally {
     connection.release();
   }
+}
+
+/**
+ * Obtiene todos los vendedores de la base de datos.
+ * @returns Una lista de vendedores.
+ */
+export async function getSellers(): Promise<Seller[]> {
+    const connection = await db.getConnection();
+    try {
+        const [rows] = await connection.query<SellerRow[]>('SELECT id, name FROM sellers ORDER BY name ASC');
+        return rows.map(row => ({ id: row.id, name: row.name }));
+    } catch (error) {
+        console.error('Error fetching sellers:', error);
+        return [];
+    } finally {
+        connection.release();
+    }
 }

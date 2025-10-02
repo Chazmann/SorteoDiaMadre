@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { Ticket } from "@/lib/types";
 import { generateMotherSDayImage } from "@/ai/flows/generate-mother-s-day-image";
 import { PrizeList } from "@/components/madre-suerte/prize-list";
-import { TicketForm, type TicketFormValues } from "@/components/madre-suerte/ticket-form";
+import { TicketForm } from "@/components/madre-suerte/ticket-form";
 import { TicketGallery } from "@/components/madre-suerte/ticket-gallery";
 import { TicketDetailsModal } from "@/components/madre-suerte/ticket-details-modal";
 import { HeartIcon } from "@/components/icons";
@@ -24,6 +24,13 @@ import { Gift, Menu, Home as HomeIcon, Shield } from "lucide-react";
 import { getTickets, createTicket, getUsedNumberHashes } from "@/app/actions/ticket-actions";
 
 const MAX_TICKETS = 250;
+
+type TicketFormSubmitValues = {
+    sellerId: number;
+    sellerName: string;
+    buyerName: string;
+    buyerPhoneNumber: string;
+};
 
 export default function Home() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -82,7 +89,7 @@ export default function Home() {
     return newNumbers;
   };
 
-  const handleFormSubmit = async (values: TicketFormValues, newNumbers: number[]) => {
+  const handleFormSubmit = async (values: TicketFormSubmitValues, newNumbers: number[]) => {
     if (tickets.length >= MAX_TICKETS) {
       toast({
         variant: "destructive",
@@ -97,7 +104,6 @@ export default function Home() {
     try {
       const numbersKey = [...newNumbers].sort((a, b) => a - b).join(',');
       
-      // Doble verificación por si acaso
       if (generatedNumbers.has(numbersKey)) {
         toast({
           variant: "destructive",
@@ -108,7 +114,12 @@ export default function Home() {
         return;
       }
       
-      const newTicketId = await createTicket({ ...values, numbers: newNumbers });
+      const newTicketId = await createTicket({ 
+          sellerId: values.sellerId, 
+          buyerName: values.buyerName, 
+          buyerPhoneNumber: values.buyerPhoneNumber,
+          numbers: newNumbers 
+      });
 
       const result = await generateMotherSDayImage({
         ...values,

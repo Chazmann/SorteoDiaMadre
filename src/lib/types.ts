@@ -15,3 +15,8 @@ export interface Prize {
   imageUrl: string;
   imageHint: string;
 }
+
+export interface Seller {
+    id: number;
+    name: string;
+}

@@ -4,6 +4,8 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import * as React from 'react';
+
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -13,13 +15,21 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Ticket as TicketIcon, Dices } from "lucide-react";
-import * as React from 'react';
+import { getSellers } from "@/app/actions/seller-actions";
+import { Seller } from "@/lib/types";
 
 const formSchema = z.object({
-  sellerName: z.string().min(2, "El nombre del vendedor debe tener al menos 2 caracteres."),
+  sellerId: z.string().min(1, "Debes seleccionar un vendedor."),
   buyerName: z.string().min(2, "El nombre del comprador debe tener al menos 2 caracteres."),
   buyerPhoneNumber: z.string().regex(/^\+?[0-9\s-]{7,15}$/, "INGRESAR UN NÚMERO VÁLIDO."),
 });
@@ -27,18 +37,28 @@ const formSchema = z.object({
 export type TicketFormValues = z.infer<typeof formSchema>;
 
 interface TicketFormProps {
-  onSubmit: (values: TicketFormValues, numbers: number[]) => void;
+  onSubmit: (values: {
+    sellerId: number;
+    sellerName: string;
+    buyerName: string;
+    buyerPhoneNumber: string;
+  }, numbers: number[]) => void;
   isLoading: boolean;
   generateUniqueNumbers: () => number[];
 }
 
 export function TicketForm({ onSubmit, isLoading, generateUniqueNumbers }: TicketFormProps) {
   const [generatedNumbers, setGeneratedNumbers] = React.useState<number[] | null>(null);
+  const [sellers, setSellers] = React.useState<Seller[]>([]);
+
+  React.useEffect(() => {
+    getSellers().then(setSellers);
+  }, []);
   
   const form = useForm<TicketFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      sellerName: "",
+      sellerId: "",
       buyerName: "",
       buyerPhoneNumber: "",
     },
@@ -51,9 +71,16 @@ export function TicketForm({ onSubmit, isLoading, generateUniqueNumbers }: Ticke
   
   const handleFormSubmit = (values: TicketFormValues) => {
     if (generatedNumbers) {
-      onSubmit(values, generatedNumbers);
-      setGeneratedNumbers(null);
-      form.reset();
+      const selectedSeller = sellers.find(s => s.id === parseInt(values.sellerId));
+      if (selectedSeller) {
+          onSubmit({ 
+              ...values,
+              sellerId: selectedSeller.id,
+              sellerName: selectedSeller.name
+          }, generatedNumbers);
+          setGeneratedNumbers(null);
+          form.reset();
+      }
     }
   };
 
@@ -66,20 +93,31 @@ export function TicketForm({ onSubmit, isLoading, generateUniqueNumbers }: Ticke
         </CardTitle>
         <CardDescription>
           Ingresar los detalles para generar un ticket de lotería único para el sorteo de la Madre.
-               </CardDescription>
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
             <FormField
               control={form.control}
-              name="sellerName"
+              name="sellerId"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Nombre Vendedor</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Leandro Chaz" {...field} />
-                  </FormControl>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona un vendedor..." />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {sellers.map((seller) => (
+                        <SelectItem key={seller.id} value={String(seller.id)}>
+                          {seller.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
@@ -129,7 +167,7 @@ export function TicketForm({ onSubmit, isLoading, generateUniqueNumbers }: Ticke
               {generatedNumbers ? "Generar otros números" : "Generar números de la suerte"}
             </Button>
             
-            <Button type="submit" disabled={isLoading || !generatedNumbers} className="w-full" size="lg">
+            <Button type="submit" disabled={isLoading || !generatedNumbers || sellers.length === 0} className="w-full" size="lg">
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

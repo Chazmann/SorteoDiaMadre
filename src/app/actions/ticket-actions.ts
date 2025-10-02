@@ -4,16 +4,14 @@
 import db from '@/lib/db';
 import { Ticket } from '@/lib/types';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
-import { getOrCreateSeller } from './seller-actions';
 
 type CreateTicketData = {
-  sellerName: string;
+  sellerId: number; // Cambiado a sellerId
   buyerName: string;
   buyerPhoneNumber: string;
   numbers: number[];
 };
 
-// El tipo de fila ahora une tickets y sellers
 interface TicketWithSellerRow extends RowDataPacket {
   id: number;
   seller_name: string; 
@@ -28,11 +26,11 @@ interface TicketWithSellerRow extends RowDataPacket {
 function mapRowToTicket(row: TicketWithSellerRow): Ticket {
   return {
     id: String(row.id),
-    sellerName: row.seller_name,
+    sellerName: row.seller_name, // Mantenemos el nombre para la UI
     buyerName: row.buyer_name,
     buyerPhoneNumber: row.buyer_phone_number,
     numbers: [row.number_1, row.number_2, row.number_3, row.number_4],
-    imageUrl: '', // Se genera en el cliente
+    imageUrl: '', 
     drawingDate: 'October 28, 2025',
   };
 }
@@ -41,7 +39,6 @@ function mapRowToTicket(row: TicketWithSellerRow): Ticket {
 export async function getTickets(): Promise<Ticket[]> {
   const connection = await db.getConnection();
   try {
-    // Unimos las tablas para obtener el nombre del vendedor
     const query = `
         SELECT 
             t.id, 
@@ -60,25 +57,20 @@ export async function getTickets(): Promise<Ticket[]> {
     return rows.map(mapRowToTicket);
   } catch (error) {
     console.error('Error fetching tickets:', error);
-    return []; // Devolver array vacío en caso de error
+    return [];
   } finally {
     connection.release();
   }
 }
 
 export async function createTicket(data: CreateTicketData): Promise<number> {
-  const { sellerName, buyerName, buyerPhoneNumber, numbers } = data;
+  const { sellerId, buyerName, buyerPhoneNumber, numbers } = data;
   const connection = await db.getConnection();
 
   try {
-    // 1. Obtenemos o creamos el vendedor y recibimos su ID
-    const sellerId = await getOrCreateSeller(sellerName);
-
-    // 2. Ordenamos los números para el hash
     const sortedNumbers = [...numbers].sort((a, b) => a - b);
     const numbersHash = sortedNumbers.join(',');
 
-    // 3. Insertamos el ticket usando el sellerId
     const query = `
       INSERT INTO tickets 
       (seller_id, buyer_name, buyer_phone_number, number_1, number_2, number_3, number_4, numbers_hash)
@@ -103,8 +95,6 @@ export async function createTicket(data: CreateTicketData): Promise<number> {
     }
   } catch (error) {
     console.error('Error creating ticket:', error);
-    // Relanzar el error para que la UI lo pueda atrapar
-    // Esto es importante para que el usuario reciba feedback del fallo
     throw error; 
   } finally {
       connection.release();
