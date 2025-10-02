@@ -8,16 +8,15 @@ import { RowDataPacket } from 'mysql2';
 
 // Tipado para los datos que vienen del formulario
 type CreateTicketData = {
-  sellerName: string;
+  sellerName: string; // Lo mantenemos por si se usa en otro lado, pero no se guardará en DB
   buyerName: string;
   buyerPhoneNumber: string;
   numbers: number[];
 };
 
-// Tipado para las filas que vienen de la base de datos, usando la convención de snake_case
+// Tipado para las filas que vienen de la base de datos
 interface TicketRow extends RowDataPacket {
   id: number;
-  seller_name: string;
   buyer_name: string;
   buyer_phone_number: string;
   number_1: number;
@@ -25,17 +24,17 @@ interface TicketRow extends RowDataPacket {
   number_3: number;
   number_4: number;
   numbers_hash: string;
+  // La columna 'seller_name' o 'seller_id' se omite temporalmente
 };
 
 // Función para mapear una fila de la DB a nuestro tipo Ticket
 function mapRowToTicket(row: TicketRow): Ticket {
   return {
     id: String(row.id),
-    sellerName: row.seller_name,
+    sellerName: '', // Devolvemos un string vacío temporalmente
     buyerName: row.buyer_name,
     buyerPhoneNumber: row.buyer_phone_number,
     numbers: [row.number_1, row.number_2, row.number_3, row.number_4],
-    // Estos valores no están en la tabla, se generan después
     imageUrl: '', 
     drawingDate: 'October 28, 2025',
   };
@@ -44,35 +43,34 @@ function mapRowToTicket(row: TicketRow): Ticket {
 
 export async function getTickets(): Promise<Ticket[]> {
   try {
-    const [rows] = await db.query<TicketRow[]>('SELECT id, seller_name, buyer_name, buyer_phone_number, number_1, number_2, number_3, number_4 FROM tickets ORDER BY id DESC');
+    // Se elimina 'seller_name' de la consulta SELECT
+    const [rows] = await db.query<TicketRow[]>('SELECT id, buyer_name, buyer_phone_number, number_1, number_2, number_3, number_4 FROM tickets ORDER BY id DESC');
     if (!rows) {
         return [];
     }
     return rows.map(mapRowToTicket);
   } catch (error) {
     console.error('Error fetching tickets:', error);
-    // En lugar de lanzar un error que rompe la app, devolvemos un array vacío.
-    // La UI puede manejar un array vacío y mostrar que no hay tickets.
     return [];
   }
 }
 
 export async function createTicket(data: CreateTicketData): Promise<number> {
-  const { sellerName, buyerName, buyerPhoneNumber, numbers } = data;
+  const { buyerName, buyerPhoneNumber, numbers } = data;
 
-  // Ordenar números para asegurar un hash consistente
   const sortedNumbers = [...numbers].sort((a, b) => a - b);
   const numbersHash = sortedNumbers.join(',');
 
+  // Se elimina 'seller_name' de la consulta INSERT
   const query = `
     INSERT INTO tickets 
-    (seller_name, buyer_name, buyer_phone_number, number_1, number_2, number_3, number_4, numbers_hash)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    (buyer_name, buyer_phone_number, number_1, number_2, number_3, number_4, numbers_hash)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `;
 
   try {
+    // Se elimina 'sellerName' de los parámetros
     const [result] = await db.execute(query, [
-      sellerName,
       buyerName,
       buyerPhoneNumber,
       sortedNumbers[0],
@@ -82,7 +80,6 @@ export async function createTicket(data: CreateTicketData): Promise<number> {
       numbersHash,
     ]);
     
-    // `insertId` está en el objeto de resultado para consultas INSERT
     const insertId = (result as any).insertId;
     if (!insertId) {
         throw new Error('Failed to get insertId from database response.');
@@ -90,7 +87,6 @@ export async function createTicket(data: CreateTicketData): Promise<number> {
     return insertId;
   } catch (error) {
     console.error('Error creating ticket:', error);
-    // Re-lanzamos el error para que el cliente pueda manejarlo (ej. error de duplicado)
     throw error;
   }
 }
