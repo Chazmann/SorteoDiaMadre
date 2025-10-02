@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Gift } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
-const GENERIC_PRIZE_IMAGE_URL = "https://placehold.co/600x400/EEE/31343C?text=Premio";
+const GENERIC_PRIZE_IMAGE_URL = "/images/generic-prize.jpg";
 
 export function PrizeList() {
   const [prizes, setPrizes] = useState<Prize[]>([]);
@@ -71,6 +71,7 @@ export function PrizeList() {
                 alt={prize.title}
                 fill
                 className="object-cover"
+                onError={(e) => { e.currentTarget.src = GENERIC_PRIZE_IMAGE_URL; }}
               />
             </div>
             <CardContent className="p-4">
@@ -82,5 +83,3 @@ export function PrizeList() {
     </section>
   );
 }
-
-    
