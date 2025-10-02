@@ -24,14 +24,13 @@ interface TicketRow extends RowDataPacket {
   number_3: number;
   number_4: number;
   numbers_hash: string;
-  // La columna 'seller_name' o 'seller_id' se omite temporalmente
 };
 
 // Función para mapear una fila de la DB a nuestro tipo Ticket
 function mapRowToTicket(row: TicketRow): Ticket {
   return {
     id: String(row.id),
-    sellerName: '', // Devolvemos un string vacío temporalmente
+    sellerName: '', // Devolvemos un string vacío porque no lo estamos obteniendo de la DB
     buyerName: row.buyer_name,
     buyerPhoneNumber: row.buyer_phone_number,
     numbers: [row.number_1, row.number_2, row.number_3, row.number_4],
@@ -43,8 +42,8 @@ function mapRowToTicket(row: TicketRow): Ticket {
 
 export async function getTickets(): Promise<Ticket[]> {
   try {
-    // Se elimina 'seller_name' de la consulta SELECT
-    const [rows] = await db.query<TicketRow[]>('SELECT id, buyer_name, buyer_phone_number, number_1, number_2, number_3, number_4 FROM tickets ORDER BY id DESC');
+    // Se elimina la columna del vendedor de la consulta SELECT
+    const [rows] = await db.query<TicketRow[]>('SELECT id, buyer_name, buyer_phone_number, number_1, number_2, number_3, number_4, numbers_hash FROM tickets ORDER BY id DESC');
     if (!rows) {
         return [];
     }
@@ -61,7 +60,7 @@ export async function createTicket(data: CreateTicketData): Promise<number> {
   const sortedNumbers = [...numbers].sort((a, b) => a - b);
   const numbersHash = sortedNumbers.join(',');
 
-  // Se elimina 'seller_name' de la consulta INSERT
+  // Se elimina la columna del vendedor ('seller_id') de la consulta INSERT
   const query = `
     INSERT INTO tickets 
     (buyer_name, buyer_phone_number, number_1, number_2, number_3, number_4, numbers_hash)
@@ -69,7 +68,7 @@ export async function createTicket(data: CreateTicketData): Promise<number> {
   `;
 
   try {
-    // Se elimina 'sellerName' de los parámetros
+    // Se elimina sellerName de los parámetros de la consulta
     const [result] = await db.execute(query, [
       buyerName,
       buyerPhoneNumber,
