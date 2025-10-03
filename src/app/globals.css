@@ -26,8 +26,8 @@ body {
     --muted: 338 78% 88%; /* Even lighter for muted elements */
     --muted-foreground: 0 0% 30%;
 
-    --accent: 283 69% 42%; /* Playful Violet */
-    --accent-foreground: 0 0% 100%; /* White text on violet */
+    --accent: 336 75% 57%; /* Lighter, more saturated rose for accent */
+    --accent-foreground: 0 0% 100%; /* White text on accent */
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
@@ -127,7 +127,7 @@ body {
     background-attachment: fixed;
   }
   .bg-card{
-    background-color: #fff9!important;
+    background-color: #fffa!important;
     backdrop-filter: blur(10px)!important
   }
   .bg-popover{
