@@ -77,6 +77,7 @@ export default function LoginPage() {
       if (seller) {
         localStorage.setItem('loggedInSeller', JSON.stringify(seller));
         toast({
+          variant: 'success',
           title: '¡Bienvenido/a!',
           description: `Has iniciado sesión como ${seller.name}.`,
         });

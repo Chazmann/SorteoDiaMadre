@@ -247,7 +247,7 @@ export default function Home() {
             </h1>
             <HeartIcon className="w-8 h-8 text-primary" />
           </div>
-          <p className="text-xl md:text-2xl text-muted-foreground mt-2">
+          <p className="cardHeader text-xl md:text-2xl text-muted-foreground mt-2">
             Bienvenido/a, <span className="font-bold text-primary">{loggedInSeller.name}</span>.
           </p>
         </header>
