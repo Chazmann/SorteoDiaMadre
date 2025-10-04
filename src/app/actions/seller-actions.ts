@@ -8,6 +8,16 @@ import { randomBytes } from 'crypto';
 
 interface SellerRow extends RowDataPacket, Seller {}
 
+export type ValidateCredentialsResponse = {
+  status: 'success';
+  seller: Omit<Seller, 'password_hash' | 'created_at'>;
+} | {
+  status: 'session_active';
+  seller: { id: number; name: string };
+} | {
+  status: 'invalid_credentials';
+};
+
 /**
  * Obtiene todos los vendedores de la base de datos para poblarlos en el login.
  * @returns Una lista de vendedores.
@@ -26,43 +36,81 @@ export async function getSellers(): Promise<Omit<Seller, 'password_hash' | 'crea
 }
 
 /**
- * Valida las credenciales de un vendedor por su nombre y contraseña (texto plano).
- * Si son correctas, genera un token de sesión único, lo guarda y lo devuelve.
- * @param name - El nombre del vendedor seleccionado en el login.
- * @param password - La contraseña en texto plano a verificar.
- * @returns El objeto del vendedor con su token de sesión si las credenciales son correctas, de lo contrario null.
+ * Valida las credenciales de un vendedor.
+ * Si son correctas y no hay sesión activa, inicia una nueva sesión.
+ * Si son correctas y SÍ hay una sesión activa, devuelve un estado para confirmación.
+ * @param name - El nombre del vendedor.
+ * @param password - La contraseña en texto plano.
+ * @returns Un objeto con el estado de la validación.
  */
-export async function validateSellerCredentials(name: string, password: string): Promise<Omit<Seller, 'password_hash' | 'created_at'> | null> {
+export async function validateSellerCredentials(name: string, password: string): Promise<ValidateCredentialsResponse> {
     const connection = await db.getConnection();
     try {
         const [rows] = await connection.query<SellerRow[]>(
-            'SELECT id, name, username, password_hash FROM sellers WHERE name = ?',
+            'SELECT id, name, username, password_hash, session_token FROM sellers WHERE name = ?',
             [name]
         );
 
-        if (rows.length === 0) {
-            return null;
+        if (rows.length === 0 || rows[0].password_hash !== password) {
+            return { status: 'invalid_credentials' };
         }
 
         const seller = rows[0];
 
-        if (seller.password_hash === password) {
-            // Generar un token de sesión único.
-            const sessionToken = randomBytes(32).toString('hex');
-            
-            // Actualizar el token en la base de datos para este vendedor.
-            await connection.execute(
-                'UPDATE sellers SET session_token = ? WHERE id = ?',
-                [sessionToken, seller.id]
-            );
-
-            return { id: seller.id, name: seller.name, username: seller.username, session_token: sessionToken };
-        } else {
-            return null;
+        // Si ya hay un token de sesión, informamos al cliente para que pida confirmación.
+        if (seller.session_token) {
+            return { status: 'session_active', seller: { id: seller.id, name: seller.name } };
         }
+
+        // Si no hay sesión activa, procedemos a crear una nueva.
+        const sessionToken = randomBytes(32).toString('hex');
+        await connection.execute(
+            'UPDATE sellers SET session_token = ? WHERE id = ?',
+            [sessionToken, seller.id]
+        );
+
+        return {
+            status: 'success',
+            seller: { id: seller.id, name: seller.name, username: seller.username, session_token: sessionToken }
+        };
+
     } catch (error) {
         console.error('Error validando las credenciales del vendedor:', error);
         throw new Error('Error del servidor durante la validación.');
+    } finally {
+        connection.release();
+    }
+}
+
+/**
+ * Fuerza el inicio de sesión generando un nuevo token y sobrescribiendo el anterior.
+ * @param sellerId - El ID del vendedor.
+ * @returns El objeto del vendedor con su nuevo token de sesión.
+ */
+export async function forceLoginAndCreateSession(sellerId: number): Promise<Omit<Seller, 'password_hash' | 'created_at'>> {
+    const connection = await db.getConnection();
+    try {
+        const sessionToken = randomBytes(32).toString('hex');
+        await connection.execute(
+            'UPDATE sellers SET session_token = ? WHERE id = ?',
+            [sessionToken, sellerId]
+        );
+
+        const [rows] = await connection.query<SellerRow[]>(
+            'SELECT id, name, username FROM sellers WHERE id = ?',
+            [sellerId]
+        );
+
+        if (rows.length === 0) {
+            throw new Error('Seller not found after forcing login.');
+        }
+        
+        const seller = rows[0];
+
+        return { id: seller.id, name: seller.name, username: seller.username, session_token: sessionToken };
+    } catch (error) {
+        console.error('Error forcing login:', error);
+        throw new Error('Server error during force login.');
     } finally {
         connection.release();
     }
@@ -75,7 +123,7 @@ export async function validateSellerCredentials(name: string, password: string):
  * @param sessionToken - El token de sesión a verificar.
  * @returns true si el token es válido, false en caso contrario.
  */
-export async function verifySessionToken(sellerId: number, sessionToken: string | null): Promise<boolean> {
+export async function verifySession(sellerId: number, sessionToken: string | null): Promise<boolean> {
     if (!sessionToken || !sellerId) {
         return false;
     }

@@ -6,9 +6,11 @@ import db from '@/lib/db';
 import { Ticket } from '@/lib/types';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
 import { PoolConnection } from 'mysql2/promise';
+import { verifySession } from './seller-actions';
 
 type CreateTicketData = {
   sellerId: number;
+  sellerToken: string;
   buyerName: string;
   buyerPhoneNumber: string;
   numbers: number[];
@@ -73,8 +75,21 @@ export async function getTickets(): Promise<Ticket[]> {
   }
 }
 
+/**
+ * Creates a new ticket after verifying the seller's session.
+ * @param data - The data for creating the ticket, including session info.
+ * @returns The ID of the newly created ticket.
+ * @throws An error if the session is invalid or ticket creation fails.
+ */
 export async function createTicket(data: CreateTicketData): Promise<number> {
-  const { sellerId, buyerName, buyerPhoneNumber, numbers, paymentMethod } = data;
+  const { sellerId, sellerToken, buyerName, buyerPhoneNumber, numbers, paymentMethod } = data;
+
+  // 1. Verify session before proceeding
+  const isSessionValid = await verifySession(sellerId, sellerToken);
+  if (!isSessionValid) {
+    throw new Error('invalid_session');
+  }
+  
   const connection = await db.getConnection();
 
   try {
@@ -107,6 +122,10 @@ export async function createTicket(data: CreateTicketData): Promise<number> {
   } catch (error) {
     await connection.rollback();
     console.error('Error creating ticket:', error);
+    // Re-throw the original error or a new one to be caught by the frontend
+    if (error instanceof Error && error.message.includes('Duplicate entry')) {
+        throw new Error('duplicate_number');
+    }
     throw error; 
   } finally {
       connection.release();

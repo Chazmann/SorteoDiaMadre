@@ -15,10 +15,20 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { validateSellerCredentials, getSellers } from '@/app/actions/seller-actions';
+import { validateSellerCredentials, getSellers, forceLoginAndCreateSession } from '@/app/actions/seller-actions';
 import { Seller } from '@/lib/types';
 import { Loader2, LogIn, Eye, EyeOff, Users } from 'lucide-react';
 import { HeartIcon } from '@/components/icons';
@@ -37,11 +47,14 @@ const formSchema = z.object({
 });
 
 type SimpleSeller = Omit<Seller, 'password_hash' | 'created_at' | 'session_token'>;
+type SessionActiveSeller = { id: number; name: string };
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
   const [sellers, setSellers] = React.useState<SimpleSeller[]>([]);
+  const [showSessionConflict, setShowSessionConflict] = React.useState(false);
+  const [conflictSeller, setConflictSeller] = React.useState<SessionActiveSeller | null>(null);
   const router = useRouter();
   const { toast } = useToast();
 
@@ -54,7 +67,6 @@ export default function LoginPage() {
   });
   
   React.useEffect(() => {
-    // Si ya hay una sesión, redirigir a la página principal
     if (localStorage.getItem('loggedInSeller')) {
         router.push('/');
     }
@@ -67,23 +79,29 @@ export default function LoginPage() {
 
   }, [router]);
 
+  const handleLoginSuccess = (sellerData: Omit<Seller, 'password_hash' | 'created_at'>) => {
+    localStorage.setItem('loggedInSeller', JSON.stringify(sellerData));
+    toast({
+      title: '¡Bienvenido/a!',
+      description: `Has iniciado sesión como ${sellerData.name}.`,
+    });
+    router.push('/');
+  };
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     try {
-      const sellerData = await validateSellerCredentials(
+      const response = await validateSellerCredentials(
         values.name,
         values.password
       );
 
-      if (sellerData && sellerData.session_token) {
-        localStorage.setItem('loggedInSeller', JSON.stringify(sellerData));
-        toast({
-          title: '¡Bienvenido/a!',
-          description: `Has iniciado sesión como ${sellerData.name}.`,
-        });
-        router.push('/');
-      } else {
+      if (response.status === 'success') {
+        handleLoginSuccess(response.seller);
+      } else if (response.status === 'session_active') {
+        setConflictSeller(response.seller);
+        setShowSessionConflict(true);
+      } else { // 'invalid_credentials'
         toast({
           variant: 'destructive',
           title: 'Error de autenticación',
@@ -102,7 +120,30 @@ export default function LoginPage() {
     }
   }
 
+  const handleForceLogin = async () => {
+    if (!conflictSeller) return;
+
+    setIsLoading(true);
+    setShowSessionConflict(false);
+
+    try {
+        const sellerData = await forceLoginAndCreateSession(conflictSeller.id);
+        handleLoginSuccess(sellerData);
+    } catch (error) {
+        console.error(error);
+        toast({
+            variant: 'destructive',
+            title: 'Error en el servidor',
+            description: 'No se pudo forzar el inicio de sesión. Intenta de nuevo.',
+        });
+    } finally {
+        setIsLoading(false);
+        setConflictSeller(null);
+    }
+  };
+
   return (
+    <>
     <main className="flex min-h-screen flex-col items-center justify-center p-4 bg-background">
        <header className="text-center mb-12">
           <div className="inline-flex items-center gap-3 mb-2">
@@ -197,5 +238,21 @@ export default function LoginPage() {
         </CardContent>
       </Card>
     </main>
+    <AlertDialog open={showSessionConflict} onOpenChange={setShowSessionConflict}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+            <AlertDialogTitle>Sesión Activa Detectada</AlertDialogTitle>
+            <AlertDialogDescription>
+                El vendedor "{conflictSeller?.name}" ya tiene una sesión activa en otro dispositivo. 
+                ¿Deseas continuar aquí y cerrar la otra sesión?
+            </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setConflictSeller(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleForceLogin}>Continuar</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

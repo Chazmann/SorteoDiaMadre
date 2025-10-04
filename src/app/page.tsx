@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Gift, Menu, Home as HomeIcon, Shield, LogOut, Loader2 } from "lucide-react";
 import { getTickets, createTicket, getUsedNumbers } from "@/app/actions/ticket-actions";
-import { getSellers, verifySessionToken, clearSessionToken } from "@/app/actions/seller-actions";
+import { getSellers, verifySession, clearSessionToken } from "@/app/actions/seller-actions";
 
 
 const MAX_TICKETS = 250;
@@ -47,6 +47,25 @@ export default function Home() {
   const { toast } = useToast();
   const router = useRouter();
   const [loggedInSeller, setLoggedInSeller] = useState<Seller | null>(null);
+  
+  const handleLogout = React.useCallback(async (isInvalidSession = false) => {
+    if (loggedInSeller) {
+      await clearSessionToken(loggedInSeller.id);
+    }
+    localStorage.removeItem('loggedInSeller');
+    setLoggedInSeller(null);
+    router.push('/login');
+    if (isInvalidSession) {
+         toast({
+            variant: 'destructive',
+            title: 'Sesión Expirada',
+            description: 'Has iniciado sesión desde otro dispositivo.',
+        });
+    } else {
+        toast({ title: 'Sesión cerrada', description: 'Has cerrado sesión correctamente.' });
+    }
+  }, [loggedInSeller, router, toast]);
+
 
   useEffect(() => {
     const sellerDataString = localStorage.getItem('loggedInSeller');
@@ -55,19 +74,21 @@ export default function Home() {
       return;
     }
 
-    const seller: Seller = JSON.parse(sellerDataString);
-    setLoggedInSeller(seller);
+    let seller: Seller;
+    try {
+        seller = JSON.parse(sellerDataString);
+        setLoggedInSeller(seller);
+    } catch (e) {
+        console.error("Failed to parse seller data", e);
+        handleLogout();
+        return;
+    }
+
 
     async function validateAndFetchData() {
-        const isValid = await verifySessionToken(seller.id, seller.session_token || null);
+        const isValid = await verifySession(seller.id, seller.session_token || null);
         if (!isValid) {
-            toast({
-                variant: 'destructive',
-                title: 'Sesión Expirada',
-                description: 'Has iniciado sesión desde otro dispositivo. Por favor, vuelve a ingresar.',
-            });
-            localStorage.removeItem('loggedInSeller');
-            router.push('/login');
+            handleLogout(true);
             return;
         }
 
@@ -92,16 +113,7 @@ export default function Home() {
     
     validateAndFetchData();
 
-  }, [router, toast]);
-
-  const handleLogout = async () => {
-    if (loggedInSeller) {
-      await clearSessionToken(loggedInSeller.id);
-    }
-    localStorage.removeItem('loggedInSeller');
-    router.push('/login');
-    toast({ title: 'Sesión cerrada', description: 'Has cerrado sesión correctamente.' });
-  };
+  }, [router, toast, handleLogout]);
 
   const generateUniqueNumbers = (): number[] => {
     let newNumbers = new Set<number>();
@@ -129,9 +141,9 @@ export default function Home() {
   };
 
   const handleFormSubmit = async (values: TicketFormSubmitValues, newNumbers: number[]): Promise<boolean> => {
-    if (!loggedInSeller) {
-      toast({ variant: "destructive", title: "Error", description: "No has iniciado sesión." });
-      router.push('/login');
+    if (!loggedInSeller || !loggedInSeller.session_token) {
+      toast({ variant: "destructive", title: "Error", description: "Sesión no válida. Por favor, inicia sesión de nuevo." });
+      handleLogout(true);
       return false;
     }
 
@@ -149,6 +161,7 @@ export default function Home() {
     try {
       const newTicketId = await createTicket({ 
           sellerId: loggedInSeller.id, 
+          sellerToken: loggedInSeller.session_token,
           buyerName: values.buyerName, 
           buyerPhoneNumber: values.buyerPhoneNumber,
           numbers: newNumbers,
@@ -189,7 +202,12 @@ export default function Home() {
       }
     } catch (error: any) {
       console.error(error);
-      const isDuplicateError = error.message?.includes('UNIQUE constraint failed') || error.message?.includes('Duplicate entry');
+      if (error.message === 'invalid_session') {
+        handleLogout(true);
+        return false;
+      }
+
+      const isDuplicateError = error.message === 'duplicate_number';
       toast({
         variant: "destructive",
         title: isDuplicateError ? "Número Duplicado" : "Falló la Creación del Ticket",
@@ -245,7 +263,7 @@ export default function Home() {
                 <span>Ver Premios</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleLogout} className="text-red-500 focus:text-red-500">
+            <DropdownMenuItem onClick={() => handleLogout(false)} className="text-red-500 focus:text-red-500">
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Cerrar Sesión</span>
             </DropdownMenuItem>

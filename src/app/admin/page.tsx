@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { FileDown, Pencil, Shield, Menu, Home as HomeIcon, Users, BarChart, LogOut } from 'lucide-react';
 import { getTickets } from '@/app/actions/ticket-actions';
 import { getPrizes, updatePrize } from '@/app/actions/prize-actions';
-import { getSellers, verifySessionToken, clearSessionToken } from '@/app/actions/seller-actions';
+import { getSellers, verifySession, clearSessionToken } from '@/app/actions/seller-actions';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import {
@@ -99,6 +99,24 @@ export default function AdminPage() {
   const router = useRouter();
   const [loggedInSeller, setLoggedInSeller] = useState<Seller | null>(null);
 
+  const handleLogout = React.useCallback(async (isInvalidSession = false) => {
+    if (loggedInSeller) {
+      await clearSessionToken(loggedInSeller.id);
+    }
+    localStorage.removeItem('loggedInSeller');
+    setLoggedInSeller(null);
+    router.push('/login');
+    if (isInvalidSession) {
+         toast({
+            variant: 'destructive',
+            title: 'Sesión Expirada',
+            description: 'Has iniciado sesión desde otro dispositivo.',
+        });
+    } else {
+        toast({ title: 'Sesión cerrada', description: 'Has cerrado sesión correctamente.' });
+    }
+  }, [loggedInSeller, router, toast]);
+
   useEffect(() => {
     const sellerDataString = localStorage.getItem('loggedInSeller');
     if (!sellerDataString) {
@@ -106,19 +124,20 @@ export default function AdminPage() {
       return;
     }
     
-    const seller: Seller = JSON.parse(sellerDataString);
-    setLoggedInSeller(seller);
+    let seller: Seller;
+    try {
+        seller = JSON.parse(sellerDataString);
+        setLoggedInSeller(seller);
+    } catch (e) {
+        console.error("Failed to parse seller data", e);
+        handleLogout();
+        return;
+    }
 
     async function validateAndFetchData() {
-        const isValid = await verifySessionToken(seller.id, seller.session_token || null);
+        const isValid = await verifySession(seller.id, seller.session_token || null);
         if (!isValid) {
-            toast({
-                variant: 'destructive',
-                title: 'Sesión Expirada',
-                description: 'Has iniciado sesión desde otro dispositivo. Por favor, vuelve a ingresar.',
-            });
-            localStorage.removeItem('loggedInSeller');
-            router.push('/login');
+            handleLogout(true);
             return;
         }
 
@@ -145,16 +164,7 @@ export default function AdminPage() {
     }
 
     validateAndFetchData();
-  }, [toast, router]);
-
-   const handleLogout = async () => {
-    if (loggedInSeller) {
-      await clearSessionToken(loggedInSeller.id);
-    }
-    localStorage.removeItem('loggedInSeller');
-    router.push('/login');
-    toast({ title: 'Sesión cerrada', description: 'Has cerrado sesión correctamente.' });
-  };
+  }, [toast, router, handleLogout]);
 
   const handleExportPDF = () => {
     const doc = new jsPDF();
@@ -265,7 +275,7 @@ export default function AdminPage() {
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleLogout} className="text-red-500 focus:text-red-500">
+            <DropdownMenuItem onClick={() => handleLogout(false)} className="text-red-500 focus:text-red-500">
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Cerrar Sesión</span>
             </DropdownMenuItem>
