@@ -112,7 +112,6 @@ export default function Home() {
     }
     
     validateAndFetchData();
-
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -326,5 +325,3 @@ export default function Home() {
     </>
   );
 }
-
-    
