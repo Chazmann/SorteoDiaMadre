@@ -132,7 +132,7 @@ export function TicketForm({ onSubmit, isLoading, generateUniqueNumbers }: Ticke
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Forma de Pago</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                          <CreditCard className="w-4 h-4 mr-2" />
