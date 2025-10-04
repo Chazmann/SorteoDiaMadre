@@ -36,10 +36,12 @@ const formSchema = z.object({
   password: z.string().min(1, 'Debes ingresar tu contraseña.'),
 });
 
+type SimpleSeller = Omit<Seller, 'password_hash' | 'created_at' | 'session_token'>;
+
 export default function LoginPage() {
   const [isLoading, setIsLoading] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
-  const [sellers, setSellers] = React.useState<Seller[]>([]);
+  const [sellers, setSellers] = React.useState<SimpleSeller[]>([]);
   const router = useRouter();
   const { toast } = useToast();
 
@@ -69,16 +71,16 @@ export default function LoginPage() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     try {
-      const seller = await validateSellerCredentials(
+      const sellerData = await validateSellerCredentials(
         values.name,
         values.password
       );
 
-      if (seller) {
-        localStorage.setItem('loggedInSeller', JSON.stringify(seller));
+      if (sellerData && sellerData.session_token) {
+        localStorage.setItem('loggedInSeller', JSON.stringify(sellerData));
         toast({
           title: '¡Bienvenido/a!',
-          description: `Has iniciado sesión como ${seller.name}.`,
+          description: `Has iniciado sesión como ${sellerData.name}.`,
         });
         router.push('/');
       } else {

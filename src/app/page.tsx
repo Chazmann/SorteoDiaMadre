@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Gift, Menu, Home as HomeIcon, Shield, LogOut, Loader2 } from "lucide-react";
 import { getTickets, createTicket, getUsedNumbers } from "@/app/actions/ticket-actions";
-import { getSellers } from "@/app/actions/seller-actions";
+import { getSellers, verifySessionToken, clearSessionToken } from "@/app/actions/seller-actions";
 
 
 const MAX_TICKETS = 250;
@@ -37,7 +37,7 @@ type TicketFormSubmitValues = {
 
 export default function Home() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [sellers, setSellers] = useState<Seller[]>([]);
+  const [sellers, setSellers] = useState<Omit<Seller, 'password_hash'|'created_at'|'session_token'>[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [usedNumbers, setUsedNumbers] = useState(new Set<number>());
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
@@ -49,40 +49,55 @@ export default function Home() {
   const [loggedInSeller, setLoggedInSeller] = useState<Seller | null>(null);
 
   useEffect(() => {
-    const sellerData = localStorage.getItem('loggedInSeller');
-    if (!sellerData) {
+    const sellerDataString = localStorage.getItem('loggedInSeller');
+    if (!sellerDataString) {
       router.push('/login');
-    } else {
-      setLoggedInSeller(JSON.parse(sellerData));
+      return;
     }
-  }, [router]);
 
-  useEffect(() => {
-    const fetchInitialData = async () => {
-      try {
-        const [dbTickets, dbUsedNumbers, dbSellers] = await Promise.all([
-          getTickets(),
-          getUsedNumbers(),
-          getSellers(),
-        ]);
-        setTickets(dbTickets);
-        setUsedNumbers(dbUsedNumbers);
-        setSellers(dbSellers);
-      } catch (error) {
-        console.error("Error fetching initial data:", error);
-        toast({
-          variant: "destructive",
-          title: "Error de Carga",
-          description: "No se pudieron cargar los datos de la base de datos.",
-        });
-      }
-    };
+    const seller: Seller = JSON.parse(sellerDataString);
+    setLoggedInSeller(seller);
+
+    async function validateAndFetchData() {
+        const isValid = await verifySessionToken(seller.id, seller.session_token || null);
+        if (!isValid) {
+            toast({
+                variant: 'destructive',
+                title: 'Sesión Expirada',
+                description: 'Has iniciado sesión desde otro dispositivo. Por favor, vuelve a ingresar.',
+            });
+            localStorage.removeItem('loggedInSeller');
+            router.push('/login');
+            return;
+        }
+
+        try {
+            const [dbTickets, dbUsedNumbers, dbSellers] = await Promise.all([
+            getTickets(),
+            getUsedNumbers(),
+            getSellers(),
+            ]);
+            setTickets(dbTickets);
+            setUsedNumbers(dbUsedNumbers);
+            setSellers(dbSellers);
+        } catch (error) {
+            console.error("Error fetching initial data:", error);
+            toast({
+            variant: "destructive",
+            title: "Error de Carga",
+            description: "No se pudieron cargar los datos de la base de datos.",
+            });
+        }
+    }
+    
+    validateAndFetchData();
+
+  }, [router, toast]);
+
+  const handleLogout = async () => {
     if (loggedInSeller) {
-      fetchInitialData();
+      await clearSessionToken(loggedInSeller.id);
     }
-  }, [toast, loggedInSeller]);
-
-  const handleLogout = () => {
     localStorage.removeItem('loggedInSeller');
     router.push('/login');
     toast({ title: 'Sesión cerrada', description: 'Has cerrado sesión correctamente.' });

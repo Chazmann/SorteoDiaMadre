@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { FileDown, Pencil, Shield, Menu, Home as HomeIcon, Users, BarChart, LogOut } from 'lucide-react';
 import { getTickets } from '@/app/actions/ticket-actions';
 import { getPrizes, updatePrize } from '@/app/actions/prize-actions';
-import { getSellers } from '@/app/actions/seller-actions';
+import { getSellers, verifySessionToken, clearSessionToken } from '@/app/actions/seller-actions';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import {
@@ -88,7 +88,7 @@ function AdminPrizeCard({ prize, onEdit }: AdminPrizeCardProps) {
 export default function AdminPage() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [prizes, setPrizes] = useState<Prize[]>([]);
-  const [sellers, setSellers] = useState<Seller[]>([]);
+  const [sellers, setSellers] = useState<Omit<Seller, 'password_hash'|'created_at'|'session_token'>[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingPrize, setEditingPrize] = useState<Prize | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -97,16 +97,31 @@ export default function AdminPage() {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [statsSellerFilter, setStatsSellerFilter] = useState('todos');
   const router = useRouter();
+  const [loggedInSeller, setLoggedInSeller] = useState<Seller | null>(null);
 
   useEffect(() => {
-    // Proteger la ruta: si no hay sesión, redirigir a login.
-    const sellerData = localStorage.getItem('loggedInSeller');
-    if (!sellerData) {
+    const sellerDataString = localStorage.getItem('loggedInSeller');
+    if (!sellerDataString) {
       router.push('/login');
       return;
     }
+    
+    const seller: Seller = JSON.parse(sellerDataString);
+    setLoggedInSeller(seller);
 
-    async function fetchData() {
+    async function validateAndFetchData() {
+        const isValid = await verifySessionToken(seller.id, seller.session_token || null);
+        if (!isValid) {
+            toast({
+                variant: 'destructive',
+                title: 'Sesión Expirada',
+                description: 'Has iniciado sesión desde otro dispositivo. Por favor, vuelve a ingresar.',
+            });
+            localStorage.removeItem('loggedInSeller');
+            router.push('/login');
+            return;
+        }
+
         setLoading(true);
         try {
             const [dbTickets, dbPrizes, dbSellers] = await Promise.all([
@@ -128,10 +143,14 @@ export default function AdminPage() {
             setLoading(false);
         }
     }
-    fetchData();
+
+    validateAndFetchData();
   }, [toast, router]);
 
-   const handleLogout = () => {
+   const handleLogout = async () => {
+    if (loggedInSeller) {
+      await clearSessionToken(loggedInSeller.id);
+    }
     localStorage.removeItem('loggedInSeller');
     router.push('/login');
     toast({ title: 'Sesión cerrada', description: 'Has cerrado sesión correctamente.' });
