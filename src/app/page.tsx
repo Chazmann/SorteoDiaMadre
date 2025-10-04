@@ -113,7 +113,8 @@ export default function Home() {
     
     validateAndFetchData();
 
-  }, [router, toast, handleLogout]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const generateUniqueNumbers = (): number[] => {
     let newNumbers = new Set<number>();
@@ -325,3 +326,5 @@ export default function Home() {
     </>
   );
 }
+
+    

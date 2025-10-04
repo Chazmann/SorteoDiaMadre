@@ -164,7 +164,8 @@ export default function AdminPage() {
     }
 
     validateAndFetchData();
-  }, [toast, router, handleLogout]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleExportPDF = () => {
     const doc = new jsPDF();
@@ -521,3 +522,5 @@ if (styleSheet) {
     styleSheet.innerText = adminPageStyle;
     document.head.appendChild(styleSheet);
 }
+
+    
