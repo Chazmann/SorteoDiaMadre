@@ -25,5 +25,6 @@ export interface Seller {
     username: string;
     created_at: string;
     password_hash: string;
+    session_token?: string | null;
 }
 
