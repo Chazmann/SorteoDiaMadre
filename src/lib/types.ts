@@ -26,5 +26,6 @@ export interface Seller {
     created_at: string;
     password_hash: string;
     session_token?: string | null;
+    role: 'vendedor' | 'admin';
 }
 
