@@ -30,15 +30,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { validateSellerCredentials, getSellers, forceLoginAndCreateSession } from '@/app/actions/seller-actions';
 import { Seller } from '@/lib/types';
-import { Loader2, LogIn, Eye, EyeOff, Users } from 'lucide-react';
+import { Loader2, LogIn, Eye, EyeOff, Users, Check, ChevronsUpDown } from 'lucide-react';
 import { HeartIcon } from '@/components/icons';
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 
 
 const formSchema = z.object({
@@ -46,7 +49,7 @@ const formSchema = z.object({
   password: z.string().min(1, 'Debes ingresar tu contraseña.'),
 });
 
-type SimpleSeller = Omit<Seller, 'password_hash' | 'created_at' | 'session_token'>;
+type SimpleSeller = Omit<Seller, 'password_hash' | 'created_at' | 'session_token' | 'role'>;
 type SessionActiveSeller = { id: number; name: string };
 
 export default function LoginPage() {
@@ -57,6 +60,8 @@ export default function LoginPage() {
   const [conflictSeller, setConflictSeller] = React.useState<SessionActiveSeller | null>(null);
   const router = useRouter();
   const { toast } = useToast();
+  const [comboboxOpen, setComboboxOpen] = React.useState(false);
+
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -172,23 +177,59 @@ export default function LoginPage() {
                 control={form.control}
                 name="name"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="flex flex-col">
                     <FormLabel>Vendedor</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                       <FormControl>
-                        <SelectTrigger>
-                           <Users className="w-4 h-4 mr-2" />
-                           <SelectValue placeholder="Selecciona tu nombre..." />
-                        </SelectTrigger>
-                       </FormControl>
-                       <SelectContent>
-                         {sellers.map((seller) => (
-                            <SelectItem key={seller.id} value={seller.name}>
-                                {seller.name}
-                            </SelectItem>
-                         ))}
-                       </SelectContent>
-                    </Select>
+                    <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            className={cn(
+                              "w-full justify-between",
+                              !field.value && "text-muted-foreground"
+                            )}
+                          >
+                            {field.value
+                              ? sellers.find(
+                                  (seller) => seller.name === field.value
+                                )?.name
+                              : "Selecciona un vendedor"}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                        <Command>
+                          <CommandInput placeholder="Buscar vendedor..." />
+                          <CommandList>
+                            <CommandEmpty>No se encontró el vendedor.</CommandEmpty>
+                            <CommandGroup>
+                              {sellers.map((seller) => (
+                                <CommandItem
+                                  value={seller.name}
+                                  key={seller.id}
+                                  onSelect={() => {
+                                    form.setValue("name", seller.name);
+                                    setComboboxOpen(false);
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      seller.name === field.value
+                                        ? "opacity-100"
+                                        : "opacity-0"
+                                    )}
+                                  />
+                                  {seller.name}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                     <FormMessage />
                   </FormItem>
                 )}
