@@ -47,9 +47,10 @@ if (typeof window !== 'undefined') {
 interface AdminPrizeCardProps {
     prize: Prize;
     onEdit: (prize: Prize) => void;
+    isAdmin: boolean;
 }
 
-function AdminPrizeCard({ prize, onEdit }: AdminPrizeCardProps) {
+function AdminPrizeCard({ prize, onEdit, isAdmin }: AdminPrizeCardProps) {
     const [imageSrc, setImageSrc] = useState<string | null>(null);
 
     useEffect(() => {
@@ -61,9 +62,11 @@ function AdminPrizeCard({ prize, onEdit }: AdminPrizeCardProps) {
             <CardHeader>
                 <CardTitle className="flex justify-between items-center">
                     {`Premio ${prize.prize_order}`}
-                    <Button variant="ghost" size="icon" onClick={() => onEdit(prize)}>
-                        <Pencil className="w-4 h-4"/>
-                    </Button>
+                    {isAdmin && (
+                      <Button variant="ghost" size="icon" onClick={() => onEdit(prize)}>
+                          <Pencil className="w-4 h-4"/>
+                      </Button>
+                    )}
                 </CardTitle>
             </CardHeader>
             <CardContent>
@@ -98,6 +101,7 @@ export default function AdminPage() {
   const [statsSellerFilter, setStatsSellerFilter] = useState('todos');
   const router = useRouter();
   const [loggedInSeller, setLoggedInSeller] = useState<Seller | null>(null);
+  const isAdmin = loggedInSeller?.role === 'admin';
 
   const handleLogout = React.useCallback(async (isInvalidSession = false) => {
     if (loggedInSeller) {
@@ -128,16 +132,20 @@ export default function AdminPage() {
     try {
         seller = JSON.parse(sellerDataString);
         setLoggedInSeller(seller);
+        if (seller.role !== 'admin') {
+           // If not admin, redirect from admin page, or just hide elements.
+           // For now, elements are hidden. A redirect can be added if needed.
+        }
     } catch (e) {
         console.error("Failed to parse seller data", e);
-        handleLogout();
+        handleLogout(true); // Pass true for invalid session
         return;
     }
 
     async function validateAndFetchData() {
         const isValid = await verifySession(seller.id, seller.session_token || null);
         if (!isValid) {
-            handleLogout(true);
+            handleLogout(true); // Pass true for invalid session
             return;
         }
 
@@ -202,7 +210,7 @@ export default function AdminPage() {
   };
 
   const handleSaveChanges = async () => {
-    if (editingPrize) {
+    if (editingPrize && isAdmin) {
       setIsSaving(true);
       
       let imageUrlToSave = editingPrize.image_url;
@@ -295,7 +303,7 @@ export default function AdminPage() {
       <Tabs>
         <TabList>
           <Tab>Tickets Asignados</Tab>
-          <Tab>Gestionar Premios</Tab>
+          {isAdmin && <Tab>Gestionar Premios</Tab>}
           <Tab>Estadísticas</Tab>
         </TabList>
 
@@ -352,23 +360,25 @@ export default function AdminPage() {
           </Card>
         </TabPanel>
         
-        <TabPanel>
-          <Card>
-             <CardHeader>
-                <CardTitle>Premios del Sorteo</CardTitle>
-                <CardDescription>
-                    Aquí puedes editar la información de los premios. Los cambios se guardarán en la base de datos.
-                </CardDescription>
-             </CardHeader>
-             <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {prizes.map(prize => (
-                       <AdminPrizeCard key={prize.id} prize={prize} onEdit={handleEditPrize} />
-                    ))}
-                </div>
-             </CardContent>
-          </Card>
-        </TabPanel>
+        {isAdmin && (
+          <TabPanel>
+            <Card>
+              <CardHeader>
+                  <CardTitle>Premios del Sorteo</CardTitle>
+                  <CardDescription>
+                      Aquí puedes editar la información de los premios. Los cambios se guardarán en la base de datos.
+                  </CardDescription>
+              </CardHeader>
+              <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      {prizes.map(prize => (
+                        <AdminPrizeCard key={prize.id} prize={prize} onEdit={handleEditPrize} isAdmin={isAdmin} />
+                      ))}
+                  </div>
+              </CardContent>
+            </Card>
+          </TabPanel>
+        )}
 
         <TabPanel>
             <Card>
@@ -433,7 +443,7 @@ export default function AdminPage() {
         </TabPanel>
       </Tabs>
 
-      {editingPrize && (
+      {editingPrize && isAdmin && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
             <Card className="w-full max-w-lg">
                 <CardHeader>
