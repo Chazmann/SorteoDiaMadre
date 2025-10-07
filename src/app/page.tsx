@@ -228,6 +228,8 @@ export default function Home() {
     ? tickets 
     : tickets.filter(ticket => ticket.sellerName === activeSellerFilter);
   
+  const isAdmin = loggedInSeller?.role === 'admin';
+
   if (!loggedInSeller) {
     return (
         <div className="flex items-center justify-center h-screen">
@@ -252,12 +254,14 @@ export default function Home() {
                 <span>Inicio</span>
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/admin">
-                <Shield className="mr-2 h-4 w-4" />
-                <span>Panel de Administración</span>
-              </Link>
-            </DropdownMenuItem>
+            {isAdmin && (
+              <DropdownMenuItem asChild>
+                <Link href="/admin">
+                  <Shield className="mr-2 h-4 w-4" />
+                  <span>Panel de Administración</span>
+                </Link>
+              </DropdownMenuItem>
+            )}
              <DropdownMenuItem onClick={() => setIsPrizeModalOpen(true)}>
                 <Gift className="mr-2 h-4 w-4" />
                 <span>Ver Premios</span>
@@ -311,7 +315,9 @@ export default function Home() {
       </main>
       <footer className="text-center p-4 text-muted-foreground">
         <p>&copy; {new Date().getFullYear()} MadreSuerte. All rights reserved.</p>
-        <Link href="/admin" className="text-sm text-primary hover:underline">Panel de Administración</Link>
+        {isAdmin && (
+          <Link href="/admin" className="text-sm text-primary hover:underline">Panel de Administración</Link>
+        )}
       </footer>
       <TicketDetailsModal
         ticket={selectedTicket}

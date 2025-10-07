@@ -101,7 +101,8 @@ export default function AdminPage() {
   const [statsSellerFilter, setStatsSellerFilter] = useState('todos');
   const router = useRouter();
   const [loggedInSeller, setLoggedInSeller] = useState<Seller | null>(null);
-  const isAdmin = loggedInSeller?.role === 'admin';
+  const [isAdmin, setIsAdmin] = useState(false);
+
 
   const handleLogout = React.useCallback(async (isInvalidSession = false) => {
     if (loggedInSeller) {
@@ -132,20 +133,31 @@ export default function AdminPage() {
     try {
         seller = JSON.parse(sellerDataString);
         setLoggedInSeller(seller);
-        if (seller.role !== 'admin') {
-           // If not admin, redirect from admin page, or just hide elements.
-           // For now, elements are hidden. A redirect can be added if needed.
+        
+        const userIsAdmin = seller.role === 'admin';
+        setIsAdmin(userIsAdmin);
+
+        // Security redirect if a non-admin tries to access the page.
+        if (!userIsAdmin) {
+            toast({
+                variant: "destructive",
+                title: "Acceso Denegado",
+                description: "No tienes permiso para ver esta página.",
+            });
+            router.push('/');
+            return;
         }
+
     } catch (e) {
         console.error("Failed to parse seller data", e);
-        handleLogout(true); // Pass true for invalid session
+        handleLogout(true);
         return;
     }
 
     async function validateAndFetchData() {
         const isValid = await verifySession(seller.id, seller.session_token || null);
         if (!isValid) {
-            handleLogout(true); // Pass true for invalid session
+            handleLogout(true);
             return;
         }
 
@@ -253,7 +265,7 @@ export default function AdminPage() {
     : sellerStats.filter(stat => stat.name === statsSellerFilter);
 
 
-  if (loading) {
+  if (loading || !isAdmin) {
     return (
         <div className="container mx-auto p-4 md:p-8 flex justify-center items-center h-screen">
             <Loader2 className="w-12 h-12 animate-spin text-primary" />
@@ -277,12 +289,14 @@ export default function AdminPage() {
                 <span>Inicio</span>
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/admin">
-                <Shield className="mr-2 h-4 w-4" />
-                <span>Panel de Administración</span>
-              </Link>
-            </DropdownMenuItem>
+            {isAdmin && (
+              <DropdownMenuItem asChild>
+                <Link href="/admin">
+                  <Shield className="mr-2 h-4 w-4" />
+                  <span>Panel de Administración</span>
+                </Link>
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => handleLogout(false)} className="text-red-500 focus:text-red-500">
                 <LogOut className="mr-2 h-4 w-4" />
@@ -532,5 +546,3 @@ if (styleSheet) {
     styleSheet.innerText = adminPageStyle;
     document.head.appendChild(styleSheet);
 }
-
-    
