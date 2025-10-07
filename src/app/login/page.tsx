@@ -209,9 +209,9 @@ export default function LoginPage() {
                                 <CommandItem
                                   value={seller.name}
                                   key={seller.id}
-                                  onSelect={() => {
-                                    form.setValue("name", seller.name);
-                                    setComboboxOpen(false);
+                                  onSelect={(currentValue) => {
+                                    form.setValue("name", currentValue === field.value ? "" : currentValue)
+                                    setComboboxOpen(false)
                                   }}
                                 >
                                   <Check
