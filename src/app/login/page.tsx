@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -49,7 +50,7 @@ const formSchema = z.object({
   password: z.string().min(1, 'Debes ingresar tu contraseña.'),
 });
 
-type SimpleSeller = Omit<Seller, 'password_hash' | 'created_at' | 'session_token' | 'role'>;
+type SimpleSeller = Omit<Seller, 'password_hash' | 'created_at' | 'session_token'>;
 type SessionActiveSeller = { id: number; name: string };
 
 export default function LoginPage() {
@@ -297,3 +298,5 @@ export default function LoginPage() {
     </>
   );
 }
+
+    
