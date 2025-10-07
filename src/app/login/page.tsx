@@ -30,7 +30,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { validateSellerCredentials, getSellers, forceLoginAndCreateSession } from '@/app/actions/seller-actions';
 import { Seller } from '@/lib/types';
-import { Loader2, LogIn, Eye, EyeOff, Users, Check, ChevronsUpDown } from 'lucide-react';
+import { Loader2, LogIn, Eye, EyeOff, Check, ChevronsUpDown } from 'lucide-react';
 import { HeartIcon } from '@/components/icons';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
