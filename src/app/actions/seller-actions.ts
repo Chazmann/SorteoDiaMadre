@@ -25,8 +25,8 @@ export type ValidateCredentialsResponse = {
 export async function getSellers(): Promise<Omit<Seller, 'password_hash' | 'created_at' | 'session_token'>[]> {
     const connection = await db.getConnection();
     try {
-        const [rows] = await connection.query<SellerRow[]>('SELECT id, name, username FROM sellers ORDER BY name ASC');
-        return rows.map(s => ({ id: s.id, name: s.name, username: s.username }));
+        const [rows] = await connection.query<SellerRow[]>('SELECT id, name, username, role FROM sellers ORDER BY name ASC');
+        return rows.map(s => ({ id: s.id, name: s.name, username: s.username, role: s.role }));
     } catch (error) {
         console.error('Error fetching sellers:', error);
         return [];
@@ -34,6 +34,7 @@ export async function getSellers(): Promise<Omit<Seller, 'password_hash' | 'crea
         connection.release();
     }
 }
+
 
 /**
  * Valida las credenciales de un vendedor.
@@ -47,7 +48,7 @@ export async function validateSellerCredentials(name: string, password: string):
     const connection = await db.getConnection();
     try {
         const [rows] = await connection.query<SellerRow[]>(
-            'SELECT id, name, username, password_hash, session_token FROM sellers WHERE name = ?',
+            'SELECT id, name, username, password_hash, session_token, role FROM sellers WHERE name = ?',
             [name]
         );
 
@@ -71,7 +72,7 @@ export async function validateSellerCredentials(name: string, password: string):
 
         return {
             status: 'success',
-            seller: { id: seller.id, name: seller.name, username: seller.username, session_token: sessionToken }
+            seller: { id: seller.id, name: seller.name, username: seller.username, session_token: sessionToken, role: seller.role }
         };
 
     } catch (error) {
@@ -97,7 +98,7 @@ export async function forceLoginAndCreateSession(sellerId: number): Promise<Omit
         );
 
         const [rows] = await connection.query<SellerRow[]>(
-            'SELECT id, name, username FROM sellers WHERE id = ?',
+            'SELECT id, name, username, role FROM sellers WHERE id = ?',
             [sellerId]
         );
 
@@ -107,7 +108,7 @@ export async function forceLoginAndCreateSession(sellerId: number): Promise<Omit
         
         const seller = rows[0];
 
-        return { id: seller.id, name: seller.name, username: seller.username, session_token: sessionToken };
+        return { id: seller.id, name: seller.name, username: seller.username, session_token: sessionToken, role: seller.role };
     } catch (error) {
         console.error('Error forcing login:', error);
         throw new Error('Server error during force login.');
