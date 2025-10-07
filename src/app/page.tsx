@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -47,6 +48,7 @@ export default function Home() {
   const { toast } = useToast();
   const router = useRouter();
   const [loggedInSeller, setLoggedInSeller] = useState<Seller | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   
   const handleLogout = React.useCallback(async (isInvalidSession = false) => {
     if (loggedInSeller) {
@@ -78,6 +80,7 @@ export default function Home() {
     try {
         seller = JSON.parse(sellerDataString);
         setLoggedInSeller(seller);
+        setIsAdmin(seller.role === 'admin');
     } catch (e) {
         console.error("Failed to parse seller data", e);
         handleLogout();
@@ -228,7 +231,6 @@ export default function Home() {
     ? tickets 
     : tickets.filter(ticket => ticket.sellerName === activeSellerFilter);
   
-  const isAdmin = loggedInSeller?.role === 'admin';
 
   if (!loggedInSeller) {
     return (
