@@ -210,8 +210,8 @@ export default function LoginPage() {
                                   value={seller.name}
                                   key={seller.id}
                                   onSelect={() => {
-                                    form.setValue("name", seller.name)
-                                    setComboboxOpen(false)
+                                    form.setValue("name", seller.name);
+                                    setComboboxOpen(false);
                                   }}
                                 >
                                   <Check
