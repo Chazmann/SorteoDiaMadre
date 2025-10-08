@@ -201,23 +201,19 @@ export default function LoginPage() {
                         </FormControl>
                       </PopoverTrigger>
                       <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                        <Command
-                          onSelect={(currentValue) => {
-                              const seller = sellers.find(s => s.name.toLowerCase() === currentValue);
-                              if (seller) {
-                                form.setValue("name", seller.name);
-                              }
-                              setComboboxOpen(false);
-                          }}
-                        >
+                        <Command>
                           <CommandInput placeholder="Buscar vendedor..." />
                           <CommandList>
                             <CommandEmpty>No se encontró el vendedor.</CommandEmpty>
                             <CommandGroup>
                               {sellers.map((seller) => (
                                 <CommandItem
-                                  value={seller.name.toLowerCase()}
                                   key={seller.id}
+                                  value={seller.name}
+                                  onSelect={() => {
+                                    form.setValue("name", seller.name)
+                                    setComboboxOpen(false)
+                                  }}
                                 >
                                   <Check
                                     className={cn(
