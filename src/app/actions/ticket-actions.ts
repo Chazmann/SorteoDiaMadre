@@ -2,10 +2,9 @@
 // src/app/actions/ticket-actions.ts
 'use server';
 
-import db from '@/lib/db';
+import pool from '@/lib/db';
 import { Ticket } from '@/lib/types';
-import { RowDataPacket, ResultSetHeader } from 'mysql2';
-import { PoolConnection } from 'mysql2/promise';
+import { PoolClient } from 'pg';
 import { verifySession } from './seller-actions';
 
 type CreateTicketData = {
@@ -17,7 +16,7 @@ type CreateTicketData = {
   paymentMethod: string;
 };
 
-interface TicketRow extends RowDataPacket {
+interface TicketRow {
     id: number;
     seller_name: string;
     buyer_name: string;
@@ -25,18 +24,18 @@ interface TicketRow extends RowDataPacket {
     metodo_pago: string;
 }
 
-interface NumberRow extends RowDataPacket {
+interface NumberRow {
     number: number;
 }
 
-async function getNumbersForTicket(connection: PoolConnection, ticketId: number): Promise<number[]> {
-    const [numberRows] = await connection.query<NumberRow[]>('SELECT number FROM ticket_numbers WHERE ticket_id = ? ORDER BY number ASC', [ticketId]);
-    return numberRows.map(row => row.number);
+async function getNumbersForTicket(client: PoolClient, ticketId: number): Promise<number[]> {
+    const result = await client.query<NumberRow>('SELECT number FROM ticket_numbers WHERE ticket_id = $1 ORDER BY number ASC', [ticketId]);
+    return result.rows.map(row => row.number);
 }
 
 
 export async function getTickets(): Promise<Ticket[]> {
-  const connection = await db.getConnection();
+  const client = await pool.connect();
   try {
     const query = `
         SELECT 
@@ -49,11 +48,11 @@ export async function getTickets(): Promise<Ticket[]> {
         LEFT JOIN sellers s ON t.seller_id = s.id
         ORDER BY t.id DESC
     `;
-    const [ticketRows] = await connection.query<TicketRow[]>(query);
+    const ticketResult = await client.query<TicketRow>(query);
     
     const tickets: Ticket[] = [];
-    for (const row of ticketRows) {
-        const numbers = await getNumbersForTicket(connection, row.id);
+    for (const row of ticketResult.rows) {
+        const numbers = await getNumbersForTicket(client, row.id);
         tickets.push({
             id: String(row.id),
             sellerName: row.seller_name,
@@ -71,7 +70,7 @@ export async function getTickets(): Promise<Ticket[]> {
     console.error('Error fetching tickets:', error);
     return [];
   } finally {
-    connection.release();
+    client.release();
   }
 }
 
@@ -90,57 +89,61 @@ export async function createTicket(data: CreateTicketData): Promise<number> {
     throw new Error('invalid_session');
   }
   
-  const connection = await db.getConnection();
+  const client = await pool.connect();
 
   try {
-    await connection.beginTransaction();
+    await client.query('BEGIN');
 
     const ticketQuery = `
       INSERT INTO tickets (seller_id, buyer_name, buyer_phone_number, metodo_pago)
-      VALUES (?, ?, ?, ?)
+      VALUES ($1, $2, $3, $4)
+      RETURNING id
     `;
-    const [ticketResult] = await connection.execute<ResultSetHeader>(ticketQuery, [
+    const ticketResult = await client.query(ticketQuery, [
       sellerId,
       buyerName,
       buyerPhoneNumber,
       paymentMethod,
     ]);
     
-    const ticketId = ticketResult.insertId;
+    const ticketId = ticketResult.rows[0]?.id;
     if (!ticketId) {
         throw new Error('Failed to get insertId from database response.');
     }
+    
+    // El cliente de `pg` no soporta la inserción múltiple con `VALUES ?` como `mysql2`.
+    // Hay que construir una consulta con múltiples tuplas de valores.
+    const numberValues = numbers.map(num => `(${ticketId}, ${num})`).join(',');
+    const numberQuery = `INSERT INTO ticket_numbers (ticket_id, number) VALUES ${numberValues}`;
+    await client.query(numberQuery);
 
-    const numberQuery = 'INSERT INTO ticket_numbers (ticket_id, number) VALUES ?';
-    const numberValues = numbers.map(num => [ticketId, num]);
-    await connection.query(numberQuery, [numberValues]);
-
-    await connection.commit();
+    await client.query('COMMIT');
     
     return ticketId;
 
-  } catch (error) {
-    await connection.rollback();
+  } catch (error: any) {
+    await client.query('ROLLBACK');
     console.error('Error creating ticket:', error);
     // Re-throw the original error or a new one to be caught by the frontend
-    if (error instanceof Error && error.message.includes('Duplicate entry')) {
+    // Los códigos de error de PostgreSQL son diferentes
+    if (error.code === '23505') { // '23505' es unique_violation en PostgreSQL
         throw new Error('duplicate_number');
     }
     throw error; 
   } finally {
-      connection.release();
+      client.release();
   }
 }
 
 export async function getUsedNumbers(): Promise<Set<number>> {
-    const connection = await db.getConnection();
+    const client = await pool.connect();
     try {
-        const [rows] = await connection.query<(RowDataPacket & { number: number })[]>('SELECT number FROM ticket_numbers');
-        return new Set(rows.map(row => row.number));
+        const result = await client.query<{ number: number }>('SELECT number FROM ticket_numbers');
+        return new Set(result.rows.map(row => row.number));
     } catch (error) {
         console.error('Error fetching used numbers:', error);
         return new Set();
     } finally {
-        connection.release();
+        client.release();
     }
 }

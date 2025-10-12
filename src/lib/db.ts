@@ -1,20 +1,12 @@
 // src/lib/db.ts
-import mysql from 'mysql2/promise';
+import { Pool } from 'pg';
 
 // Configura los detalles de la conexión usando variables de entorno
-const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_DATABASE,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-  // Habilitar SSL si es necesario (común en proveedores de bases de datos en la nube)
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL, // Render proporciona esta variable de entorno
   ssl: {
-    // Para proveedores como Render, a menudo es necesario establecer esto en false.
-    // La conexión sigue siendo cifrada, pero no se rechaza por certificados autofirmados.
-    rejectUnauthorized: false 
+    // Es necesario para conexiones externas en Render
+    rejectUnauthorized: false
   }
 });
 
