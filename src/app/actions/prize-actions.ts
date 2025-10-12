@@ -4,21 +4,25 @@
 import pool from '@/lib/db';
 import { Prize } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
+import { RowDataPacket } from 'mysql2';
+
 
 /**
  * Obtiene todos los premios de la base de datos, ordenados por prize_order.
  * @returns Una lista de premios.
  */
 export async function getPrizes(): Promise<Prize[]> {
-    const client = await pool.connect();
+    const connection = await pool.getConnection();
     try {
-        const result = await client.query<Prize>('SELECT id, prize_order, title, image_url FROM prizes ORDER BY prize_order ASC');
-        return result.rows;
+        const [rows] = await connection.query<Prize[] & RowDataPacket[]>(
+            'SELECT id, prize_order, title, image_url FROM prizes ORDER BY prize_order ASC'
+        );
+        return rows;
     } catch (error) {
         console.error('Error fetching prizes:', error);
         return [];
     } finally {
-        client.release();
+        connection.release();
     }
 }
 
@@ -30,12 +34,14 @@ export async function getPrizes(): Promise<Prize[]> {
  * @returns Un objeto indicando si la operación fue exitosa.
  */
 export async function updatePrize(id: number, title: string, imageUrl: string): Promise<{ success: boolean; message: string }> {
-  const client = await pool.connect();
+  const connection = await pool.getConnection();
   try {
-    const query = 'UPDATE prizes SET title = $1, image_url = $2 WHERE id = $3';
-    const result = await client.query(query, [title, imageUrl, id]);
-
-    if (result.rowCount > 0) {
+    const query = 'UPDATE prizes SET title = ?, image_url = ? WHERE id = ?';
+    const [result] = await connection.execute(query, [title, imageUrl, id]);
+    
+    const changedRows = 'affectedRows' in result ? result.affectedRows : 0;
+    
+    if (changedRows > 0) {
       revalidatePath('/');
       revalidatePath('/admin');
       return { success: true, message: 'Premio actualizado correctamente.' };
@@ -46,6 +52,6 @@ export async function updatePrize(id: number, title: string, imageUrl: string): 
     console.error('Error updating prize:', error);
     return { success: false, message: 'Error en el servidor al actualizar el premio.' };
   } finally {
-    client.release();
+    connection.release();
   }
 }
