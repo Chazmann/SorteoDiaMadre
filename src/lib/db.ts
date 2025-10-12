@@ -11,9 +11,9 @@ const pool = mysql.createPool({
   connectionLimit: 10,
   queueLimit: 0,
   // Habilitar SSL si es necesario (común en proveedores de bases de datos en la nube)
-  // ssl: {
-  //   rejectUnauthorized: true 
-  // }
+  ssl: {
+    rejectUnauthorized: true 
+  }
 });
 
 export default pool;
