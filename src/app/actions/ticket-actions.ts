@@ -17,7 +17,7 @@ type CreateTicketData = {
 
 interface TicketRow extends QueryResultRow {
     id: number;
-    seller_name: string;
+    seller_name: string | null; // Can be null from a LEFT JOIN
     buyer_name: string;
     buyer_phone_number: string;
     metodo_pago: string;
@@ -53,7 +53,7 @@ export async function getTickets(): Promise<Ticket[]> {
         const numbers = await getNumbersForTicket(client, row.id);
         tickets.push({
             id: String(row.id),
-            sellerName: row.seller_name,
+            sellerName: row.seller_name || 'N/A', // Fallback for null seller name
             buyerName: row.buyer_name,
             buyerPhoneNumber: row.buyer_phone_number,
             numbers: numbers,
@@ -80,7 +80,6 @@ export async function createTicket(data: CreateTicketData): Promise<number> {
   try {
     await client.query('BEGIN');
     
-    // Verify session using the same client to stay within the transaction
     const isSessionValid = await verifySession(sellerId, sellerToken, client);
     if (!isSessionValid) {
       throw new Error('invalid_session');
@@ -116,11 +115,9 @@ export async function createTicket(data: CreateTicketData): Promise<number> {
     await client.query('ROLLBACK');
     console.error('Error creating ticket:', error);
     
-    // Check for PostgreSQL unique violation error code
     if (error.code === '23505') { 
         throw new Error('duplicate_number');
     }
-    // Rethrow other errors to be handled by the caller
     throw error; 
   } finally {
       client.release();
