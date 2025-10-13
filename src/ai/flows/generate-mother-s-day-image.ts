@@ -124,7 +124,7 @@ const generateSvgTemplate = (input: GenerateMotherSDayImageInput): string => {
             </div>
              <div class="detail-item">
               <span class="detail-label">Fecha del Sorteo</span>
-              <span>Octubre 28, 2025</span>
+              <span>Sábado 18 Octubre - Lot. Nac. Noct.</span>
             </div>
             <div class="detail-item">
               <span class="detail-label">Teléfono</span>
