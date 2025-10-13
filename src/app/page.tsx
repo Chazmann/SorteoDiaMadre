@@ -316,7 +316,7 @@ export default function Home() {
         )}
       </main>
       <footer className="text-center p-4 text-muted-foreground">
-        <p>&copy; {new Date().getFullYear()} MadreSuerte. All rights reserved.</p>
+        <p>&copy; {new Date().getFullYear()} MadreSuerte - Creado por RanchoChaz</p>
         {isAdmin && (
           <Link href="/admin" className="text-sm text-primary hover:underline">Panel de Administración</Link>
         )}
