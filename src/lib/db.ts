@@ -1,15 +1,21 @@
+
 // src/lib/db.ts
 import { config } from 'dotenv';
 import { Pool } from 'pg';
 
 config();
 
-// Use a connection string, which is the standard for services like Render.
-// This is more robust and less prone to configuration errors.
+// Use an object-based configuration to precisely control connection parameters,
+// mirroring the successful DBeaver setup. This is more explicit than a connection string.
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_DATABASE,
+  password: process.env.DB_PASSWORD,
+  port: process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : 5432,
   ssl: {
-    // Render requires SSL but does not require certificate verification from the client.
+    // This is equivalent to DBeaver's 'SSL mode: require'.
+    // It enforces an SSL connection but does not require client-side certificate verification.
     rejectUnauthorized: false,
   },
 });
