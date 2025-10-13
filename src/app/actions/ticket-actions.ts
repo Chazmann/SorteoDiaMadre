@@ -115,7 +115,8 @@ export async function createTicket(data: CreateTicketData): Promise<number> {
     await client.query('ROLLBACK');
     console.error('Error creating ticket:', error);
     
-    if (error.code === '23505') { // PostgreSQL unique violation error code
+    // Check for PostgreSQL unique violation error code
+    if (error.code === '23505') { 
         throw new Error('duplicate_number');
     }
     throw error; 
