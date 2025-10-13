@@ -97,14 +97,15 @@ export async function createTicket(data: CreateTicketData): Promise<number> {
       paymentMethod,
     ]);
     
-    const ticketId = ticketResult.rows[0].id;
-    if (!ticketId) {
+    if (ticketResult.rows.length === 0 || !ticketResult.rows[0].id) {
         throw new Error('Failed to get new ticket ID from database.');
     }
+    const ticketId = ticketResult.rows[0].id;
     
-    const numberQuery = 'INSERT INTO ticket_numbers (ticket_id, number) VALUES ' + numbers.map((_, i) => `($1, $${i + 2})`).join(', ');
-    const numberParams = [ticketId, ...numbers];
-    await client.query(numberQuery, numberParams);
+    const numberQuery = 'INSERT INTO ticket_numbers (ticket_id, number) VALUES ($1, $2)';
+    for (const number of numbers) {
+        await client.query(numberQuery, [ticketId, number]);
+    }
 
     await client.query('COMMIT');
     
