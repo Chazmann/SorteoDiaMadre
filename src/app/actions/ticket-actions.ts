@@ -86,8 +86,8 @@ export async function createTicket(data: CreateTicketData): Promise<number> {
     await client.query('BEGIN');
 
     const ticketQuery = `
-      INSERT INTO tickets (seller_id, buyer_name, buyer_phone_number, metodo_pago)
-      VALUES ($1, $2, $3, $4)
+      INSERT INTO tickets (seller_id, buyer_name, buyer_phone_number, metodo_pago, created_at)
+      VALUES ($1, $2, $3, $4, NOW())
       RETURNING id
     `;
     const ticketResult = await client.query(ticketQuery, [
