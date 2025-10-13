@@ -4,7 +4,7 @@
 import pool from '@/lib/db';
 import { Seller } from '@/lib/types';
 import { randomBytes } from 'crypto';
-import { QueryResultRow } from 'pg';
+import { PoolClient, QueryResultRow } from 'pg';
 
 export type ValidateCredentialsResponse = {
   status: 'success';
@@ -118,15 +118,19 @@ export async function forceLoginAndCreateSession(sellerId: number): Promise<Omit
 
 /**
  * Verifica si el token de sesión de un vendedor es válido.
+ * Puede usar una conexión de cliente existente o crear una nueva.
  * @param sellerId - El ID del vendedor.
  * @param sessionToken - El token de sesión a verificar.
+ * @param existingClient - Un cliente de base de datos opcional ya conectado.
  * @returns true si el token es válido, false en caso contrario.
  */
-export async function verifySession(sellerId: number, sessionToken: string | null): Promise<boolean> {
+export async function verifySession(sellerId: number, sessionToken: string | null, existingClient?: PoolClient): Promise<boolean> {
     if (!sessionToken || !sellerId) {
         return false;
     }
-    const client = await pool.connect();
+    
+    const client = existingClient || await pool.connect();
+    
     try {
         const result = await client.query<Pick<Seller, 'session_token'> & QueryResultRow>(
             'SELECT session_token FROM sellers WHERE id = $1',
@@ -144,7 +148,10 @@ export async function verifySession(sellerId: number, sessionToken: string | nul
         console.error('Error verifying session token:', error);
         return false;
     } finally {
-        client.release();
+        // Solo libera el cliente si no fue pasado como parámetro
+        if (!existingClient) {
+            client.release();
+        }
     }
 }
 

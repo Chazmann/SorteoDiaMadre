@@ -74,16 +74,17 @@ export async function getTickets(): Promise<Ticket[]> {
 
 export async function createTicket(data: CreateTicketData): Promise<number> {
   const { sellerId, sellerToken, buyerName, buyerPhoneNumber, numbers, paymentMethod } = data;
-
-  const isSessionValid = await verifySession(sellerId, sellerToken);
-  if (!isSessionValid) {
-    throw new Error('invalid_session');
-  }
   
   const client = await pool.connect();
 
   try {
     await client.query('BEGIN');
+    
+    // Verify session using the same client to stay within the transaction
+    const isSessionValid = await verifySession(sellerId, sellerToken, client);
+    if (!isSessionValid) {
+      throw new Error('invalid_session');
+    }
 
     const ticketQuery = `
       INSERT INTO tickets (seller_id, buyer_name, buyer_phone_number, metodo_pago, created_at)
@@ -119,6 +120,7 @@ export async function createTicket(data: CreateTicketData): Promise<number> {
     if (error.code === '23505') { 
         throw new Error('duplicate_number');
     }
+    // Rethrow other errors to be handled by the caller
     throw error; 
   } finally {
       client.release();
