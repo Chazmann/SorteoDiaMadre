@@ -148,8 +148,8 @@ export async function verifySession(sellerId: number, sessionToken: string | nul
         console.error('Error verifying session token:', error);
         return false;
     } finally {
-        // Solo libera el cliente si no fue pasado como parámetro.
-        // Esto es CRUCIAL para las transacciones.
+        // Only release the client if it was NOT passed as a parameter.
+        // This is CRUCIAL for transactions.
         if (!existingClient) {
             client.release();
         }
