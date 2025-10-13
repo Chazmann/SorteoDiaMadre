@@ -1,22 +1,20 @@
 // src/lib/db.ts
-import mysql from 'mysql2/promise';
+import { config } from 'dotenv';
+import { Pool } from 'pg';
 
-// Configura los detalles de la conexión usando variables de entorno
-const pool = mysql.createPool({
+config();
+
+// Use Pool for connection management, which is best practice
+const pool = new Pool({
   host: process.env.DB_HOST,
+  port: process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : 5432,
+  database: process.env.DB_DATABASE,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
-  database: process.env.DB_DATABASE,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-  // Descomenta la siguiente sección para producción si usas SSL
-  /*
   ssl: {
-    // Es necesario para conexiones externas en muchos proveedores de nube
-    rejectUnauthorized: false
-  }
-  */
+    // Render requires SSL but does not require certificate verification
+    rejectUnauthorized: false,
+  },
 });
 
 export default pool;

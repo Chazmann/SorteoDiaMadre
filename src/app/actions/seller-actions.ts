@@ -4,7 +4,7 @@
 import pool from '@/lib/db';
 import { Seller } from '@/lib/types';
 import { randomBytes } from 'crypto';
-import { RowDataPacket } from 'mysql2';
+import { QueryResultRow } from 'pg';
 
 export type ValidateCredentialsResponse = {
   status: 'success';
@@ -21,17 +21,17 @@ export type ValidateCredentialsResponse = {
  * @returns Una lista de vendedores.
  */
 export async function getSellers(): Promise<Omit<Seller, 'password_hash' | 'created_at' | 'session_token'>[]> {
-    const connection = await pool.getConnection();
+    const client = await pool.connect();
     try {
-        const [rows] = await connection.query<(Omit<Seller, 'password_hash' | 'created_at' | 'session_token'> & RowDataPacket)[]>(
+        const result = await client.query<(Omit<Seller, 'password_hash' | 'created_at' | 'session_token'> & QueryResultRow)>(
             'SELECT id, name, username, role FROM sellers ORDER BY name ASC'
         );
-        return rows;
+        return result.rows;
     } catch (error) {
         console.error('Error fetching sellers:', error);
         return [];
     } finally {
-        connection.release();
+        client.release();
     }
 }
 
@@ -45,28 +45,26 @@ export async function getSellers(): Promise<Omit<Seller, 'password_hash' | 'crea
  * @returns Un objeto con el estado de la validación.
  */
 export async function validateSellerCredentials(name: string, password: string): Promise<ValidateCredentialsResponse> {
-    const connection = await pool.getConnection();
+    const client = await pool.connect();
     try {
-        const [rows] = await connection.query<Seller[] & RowDataPacket[]>(
-            'SELECT id, name, username, password_hash, session_token, role FROM sellers WHERE name = ?',
+        const result = await client.query<Seller & QueryResultRow>(
+            'SELECT id, name, username, password_hash, session_token, role FROM sellers WHERE name = $1',
             [name]
         );
 
-        if (rows.length === 0 || rows[0].password_hash !== password) {
+        if (result.rows.length === 0 || result.rows[0].password_hash !== password) {
             return { status: 'invalid_credentials' };
         }
 
-        const seller = rows[0];
+        const seller = result.rows[0];
 
-        // Si ya hay un token de sesión, informamos al cliente para que pida confirmación.
         if (seller.session_token) {
             return { status: 'session_active', seller: { id: seller.id, name: seller.name } };
         }
 
-        // Si no hay sesión activa, procedemos a crear una nueva.
         const sessionToken = randomBytes(32).toString('hex');
-        await connection.execute(
-            'UPDATE sellers SET session_token = ? WHERE id = ?',
+        await client.query(
+            'UPDATE sellers SET session_token = $1 WHERE id = $2',
             [sessionToken, seller.id]
         );
 
@@ -79,7 +77,7 @@ export async function validateSellerCredentials(name: string, password: string):
         console.error('Error validando las credenciales del vendedor:', error);
         throw new Error('Error del servidor durante la validación.');
     } finally {
-        connection.release();
+        client.release();
     }
 }
 
@@ -89,31 +87,31 @@ export async function validateSellerCredentials(name: string, password: string):
  * @returns El objeto del vendedor con su nuevo token de sesión.
  */
 export async function forceLoginAndCreateSession(sellerId: number): Promise<Omit<Seller, 'password_hash' | 'created_at'>> {
-    const connection = await pool.getConnection();
+    const client = await pool.connect();
     try {
         const sessionToken = randomBytes(32).toString('hex');
-        await connection.execute(
-            'UPDATE sellers SET session_token = ? WHERE id = ?',
+        await client.query(
+            'UPDATE sellers SET session_token = $1 WHERE id = $2',
             [sessionToken, sellerId]
         );
 
-        const [rows] = await connection.query<Seller[] & RowDataPacket[]>(
-            'SELECT id, name, username, role FROM sellers WHERE id = ?',
+        const result = await client.query<Seller & QueryResultRow>(
+            'SELECT id, name, username, role FROM sellers WHERE id = $1',
             [sellerId]
         );
 
-        if (rows.length === 0) {
+        if (result.rows.length === 0) {
             throw new Error('Seller not found after forcing login.');
         }
         
-        const seller = rows[0];
+        const seller = result.rows[0];
 
         return { id: seller.id, name: seller.name, username: seller.username, session_token: sessionToken, role: seller.role };
     } catch (error) {
         console.error('Error forcing login:', error);
         throw new Error('Server error during force login.');
     } finally {
-        connection.release();
+        client.release();
     }
 }
 
@@ -128,25 +126,25 @@ export async function verifySession(sellerId: number, sessionToken: string | nul
     if (!sessionToken || !sellerId) {
         return false;
     }
-    const connection = await pool.getConnection();
+    const client = await pool.connect();
     try {
-        const [rows] = await connection.query<Pick<Seller, 'session_token'>[] & RowDataPacket[]>(
-            'SELECT session_token FROM sellers WHERE id = ?',
+        const result = await client.query<Pick<Seller, 'session_token'> & QueryResultRow>(
+            'SELECT session_token FROM sellers WHERE id = $1',
             [sellerId]
         );
 
-        if (rows.length === 0) {
+        if (result.rows.length === 0) {
             return false;
         }
         
-        const dbToken = rows[0].session_token;
+        const dbToken = result.rows[0].session_token;
         return dbToken === sessionToken;
 
     } catch (error) {
         console.error('Error verifying session token:', error);
         return false;
     } finally {
-        connection.release();
+        client.release();
     }
 }
 
@@ -157,10 +155,10 @@ export async function verifySession(sellerId: number, sessionToken: string | nul
  * @returns Un objeto indicando si la operación fue exitosa.
  */
 export async function clearSessionToken(sellerId: number): Promise<{ success: boolean }> {
-    const connection = await pool.getConnection();
+    const client = await pool.connect();
     try {
-        await connection.execute(
-            'UPDATE sellers SET session_token = NULL WHERE id = ?',
+        await client.query(
+            'UPDATE sellers SET session_token = NULL WHERE id = $1',
             [sellerId]
         );
         return { success: true };
@@ -168,6 +166,6 @@ export async function clearSessionToken(sellerId: number): Promise<{ success: bo
         console.error('Error clearing session token:', error);
         return { success: false };
     } finally {
-        connection.release();
+        client.release();
     }
 }
