@@ -4,15 +4,12 @@ import { Pool } from 'pg';
 
 config();
 
-// Use Pool for connection management, which is best practice
+// Use a connection string, which is the standard for services like Render.
+// This is more robust and less prone to configuration errors.
 const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : 5432,
-  database: process.env.DB_DATABASE,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
+  connectionString: process.env.DATABASE_URL,
   ssl: {
-    // Render requires SSL but does not require certificate verification
+    // Render requires SSL but does not require certificate verification from the client.
     rejectUnauthorized: false,
   },
 });
