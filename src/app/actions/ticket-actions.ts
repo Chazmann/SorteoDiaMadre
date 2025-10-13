@@ -58,7 +58,7 @@ export async function getTickets(): Promise<Ticket[]> {
             buyerPhoneNumber: row.buyer_phone_number,
             numbers: numbers,
             imageUrl: '', 
-            drawingDate: 'October 28, 2025',
+            drawingDate: 'October 18, 2025',
             paymentMethod: row.metodo_pago,
         });
     }
