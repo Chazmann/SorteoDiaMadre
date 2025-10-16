@@ -15,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FileDown, Pencil, Shield, Menu, Home as HomeIcon, Users, BarChart, LogOut, Trophy, Ticket as TicketIcon, Save, Download } from 'lucide-react';
+import { FileDown, Pencil, Shield, Menu, Home as HomeIcon, Users, BarChart, LogOut, Trophy, Ticket as TicketIcon, Save, Download, CreditCard } from 'lucide-react';
 import { getTickets } from '@/app/actions/ticket-actions';
 import { getPrizes, updatePrize, setWinningNumber, getWinnersData } from '@/app/actions/prize-actions';
 import { getSellers, verifySession, clearSessionToken } from '@/app/actions/seller-actions';
@@ -113,6 +113,7 @@ export default function AdminPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [statsSellerFilter, setStatsSellerFilter] = useState('todos');
+  const [statsPaymentFilter, setStatsPaymentFilter] = useState('todos');
   const router = useRouter();
   const [loggedInSeller, setLoggedInSeller] = useState<Seller | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -294,36 +295,66 @@ export default function AdminPage() {
   
   const sortedTickets = [...tickets].sort((a,b) => parseInt(a.id) - parseInt(b.id));
 
-  // Calculate stats and sort them by ticketsSold in descending order
+  // --- Start Statistics Logic ---
+
+  // Filter tickets based on both seller and payment method
+  const filteredTicketsForStats = tickets.filter(ticket => {
+      const sellerMatch = statsSellerFilter === 'todos' || ticket.sellerName === statsSellerFilter;
+      const paymentMatch = statsPaymentFilter === 'todos' || ticket.paymentMethod === statsPaymentFilter;
+      return sellerMatch && paymentMatch;
+  });
+
+  // Calculate stats based on the filtered tickets
   const sellerStats = sellers.map(seller => {
-      const sellerTickets = tickets.filter(ticket => ticket.sellerName === seller.name);
+      const sellerTickets = filteredTicketsForStats.filter(ticket => ticket.sellerName === seller.name);
       return {
           id: seller.id,
           name: seller.name,
           ticketsSold: sellerTickets.length,
-          totalCollected: sellerTickets.length * 5000, // Assuming 5000 per ticket
+          totalCollected: sellerTickets.length * 5000,
       };
-  }).sort((a, b) => b.ticketsSold - a.ticketsSold);
-  
-  const filteredStats = statsSellerFilter === 'todos'
-    ? sellerStats
-    : sellerStats.filter(stat => stat.name === statsSellerFilter);
+  })
+  .filter(seller => {
+    // If a seller is filtered, only show that seller. Otherwise, show sellers with tickets sold.
+    if (statsSellerFilter !== 'todos') {
+      return seller.name === statsSellerFilter;
+    }
+    return seller.ticketsSold > 0;
+  })
+  .sort((a, b) => b.ticketsSold - a.ticketsSold); // Always sort by tickets sold
+
+  const totalAmountCollected = filteredTicketsForStats.reduce((sum) => sum + 5000, 0);
 
   const handleExportStatsPDF = () => {
     const doc = new jsPDF();
-    const filterText = statsSellerFilter === 'todos' ? 'Todos los Vendedores' : statsSellerFilter;
-    doc.text(`Estadísticas de Venta - Filtro: ${filterText}`, 14, 15);
+    const sellerFilterText = statsSellerFilter === 'todos' ? 'Todos' : statsSellerFilter;
+    const paymentFilterText = statsPaymentFilter === 'todos' ? 'Todos' : statsPaymentFilter;
+    
+    doc.text(`Estadísticas de Venta`, 14, 15);
+    doc.setFontSize(10);
+    doc.text(`Filtro Vendedor: ${sellerFilterText}`, 14, 22);
+    doc.text(`Filtro Pago: ${paymentFilterText}`, 14, 27);
+    
     doc.autoTable({
-      startY: 20,
+      startY: 32,
       head: [['Vendedor', 'Tickets Vendidos', 'Total Recaudado']],
-      body: filteredStats.map(stat => [
+      body: sellerStats.map(stat => [
         stat.name,
         stat.ticketsSold,
         `$${stat.totalCollected.toLocaleString('es-AR')}`
       ]),
+      foot: [[
+          'TOTAL FILTRADO',
+          sellerStats.reduce((sum, stat) => sum + stat.ticketsSold, 0),
+          `$${totalAmountCollected.toLocaleString('es-AR')}`
+      ]],
+      footStyles: { fillColor: [220, 220, 220], textColor: 20, fontStyle: 'bold' }
     });
     doc.save('estadisticas_venta.pdf');
   };
+
+  // --- End Statistics Logic ---
+
 
   const handleWinningNumberChange = (prizeId: number, value: string) => {
     setWinningNumberInputs(prev => ({ ...prev, [prizeId]: value }));
@@ -632,19 +663,46 @@ export default function AdminPage() {
 
         <TabPanel>
             <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <BarChart className="w-6 h-6" />
-                        Estadísticas de Venta
-                    </CardTitle>
-                    <CardDescription>
-                        Visualiza la cantidad de tickets vendidos y el total recaudado por cada vendedor.
-                    </CardDescription>
+                <CardHeader className="flex-row items-center justify-between">
+                    <div>
+                        <CardTitle className="flex items-center gap-2">
+                            <BarChart className="w-6 h-6" />
+                            Estadísticas de Venta
+                        </CardTitle>
+                        <CardDescription>
+                            Visualiza la cantidad de tickets vendidos y el total recaudado.
+                        </CardDescription>
+                    </div>
+                     <div className="text-right">
+                        <p className="text-sm text-muted-foreground">Total Recaudado (Filtrado)</p>
+                        <p className="text-2xl font-bold text-primary">
+                            ${totalAmountCollected.toLocaleString('es-AR')}
+                        </p>
+                    </div>
                 </CardHeader>
                 <CardContent>
                     <div className="flex justify-end items-center gap-4 mb-4">
                         <div className="flex items-center gap-2">
-                            <Label htmlFor="stats-seller-filter">Filtrar por vendedor:</Label>
+                            <Label htmlFor="stats-payment-filter" className="flex items-center gap-2">
+                               <CreditCard className="w-4 h-4 text-muted-foreground" />
+                               Medio de pago:
+                            </Label>
+                            <Select value={statsPaymentFilter} onValueChange={setStatsPaymentFilter}>
+                                <SelectTrigger id="stats-payment-filter" className="w-[180px]">
+                                    <SelectValue placeholder="Seleccionar..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="todos">Todos</SelectItem>
+                                    <SelectItem value="Mercado Pago">Mercado Pago</SelectItem>
+                                    <SelectItem value="Efectivo">Efectivo</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Label htmlFor="stats-seller-filter" className="flex items-center gap-2">
+                              <Users className="w-4 h-4 text-muted-foreground" />
+                              Vendedor:
+                            </Label>
                             <Select value={statsSellerFilter} onValueChange={setStatsSellerFilter}>
                                 <SelectTrigger id="stats-seller-filter" className="w-[200px]">
                                     <SelectValue placeholder="Seleccionar..." />
@@ -673,7 +731,7 @@ export default function AdminPage() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {filteredStats.map(stat => (
+                            {sellerStats.map(stat => (
                                 <TableRow key={stat.id}>
                                     <TableCell className="font-semibold flex items-center gap-2">
                                         <Users className="w-4 h-4 text-muted-foreground" />
@@ -683,7 +741,7 @@ export default function AdminPage() {
                                     <TableCell className="text-right font-mono">${stat.totalCollected.toLocaleString('es-AR')}</TableCell>
                                 </TableRow>
                             ))}
-                             {filteredStats.length === 0 && (
+                             {sellerStats.length === 0 && (
                                 <TableRow>
                                     <TableCell colSpan={3} className="text-center text-muted-foreground">
                                         No hay datos para mostrar con el filtro seleccionado.
