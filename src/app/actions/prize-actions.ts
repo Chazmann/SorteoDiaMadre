@@ -1,10 +1,12 @@
+
 // src/app/actions/prize-actions.ts
 'use server';
 
 import pool from '@/lib/db';
-import { Prize } from '@/lib/types';
+import { Prize, Winner } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { QueryResultRow } from 'pg';
+import { getTicketByNumber } from './ticket-actions';
 
 /**
  * Inserta los premios por defecto si la tabla está vacía.
@@ -24,7 +26,7 @@ async function insertDefaultPrizes(): Promise<Prize[]> {
 
         for (const prize of defaultPrizes) {
             const result = await client.query<Prize & QueryResultRow>(
-                'INSERT INTO prizes (prize_order, title, image_url, updated_at) VALUES ($1, $2, $3, NOW()) RETURNING id, prize_order, title, image_url',
+                'INSERT INTO prizes (prize_order, title, image_url, updated_at) VALUES ($1, $2, $3, NOW()) RETURNING id, prize_order, title, image_url, winning_number',
                 [prize.prize_order, prize.title, prize.image_url]
             );
             insertedPrizes.push(result.rows[0]);
@@ -52,7 +54,7 @@ export async function getPrizes(): Promise<Prize[]> {
     const client = await pool.connect();
     try {
         const result = await client.query<Prize & QueryResultRow>(
-            'SELECT id, prize_order, title, image_url FROM prizes ORDER BY prize_order ASC'
+            'SELECT id, prize_order, title, image_url, winning_number FROM prizes ORDER BY prize_order ASC'
         );
         
         if (result.rows.length === 0) {
@@ -98,4 +100,58 @@ export async function updatePrize(id: number, title: string, imageUrl: string): 
   } finally {
     client.release();
   }
+}
+
+/**
+ * Establece el número ganador para un premio específico.
+ * @param prizeId - El ID del premio.
+ * @param winningNumber - El número ganador.
+ * @returns Un objeto indicando si la operación fue exitosa.
+ */
+export async function setWinningNumber(prizeId: number, winningNumber: number | null): Promise<{ success: boolean; message: string }> {
+    const client = await pool.connect();
+    try {
+        const query = 'UPDATE prizes SET winning_number = $1, updated_at = NOW() WHERE id = $2';
+        await client.query(query, [winningNumber, prizeId]);
+
+        revalidatePath('/admin');
+        return { success: true, message: 'Número ganador guardado.' };
+    } catch (error) {
+        console.error('Error setting winning number:', error);
+        return { success: false, message: 'Error al guardar el número ganador.' };
+    } finally {
+        client.release();
+    }
+}
+
+/**
+ * Obtiene la lista de premios con la información del ganador si existe.
+ * @returns Una lista de objetos Winner.
+ */
+export async function getWinnersData(): Promise<Winner[]> {
+    const prizes = await getPrizes();
+    
+    const winners: Winner[] = [];
+
+    for (const prize of prizes) {
+        let winnerData: Winner = { ...prize };
+        
+        if (prize.winning_number !== null && prize.winning_number !== undefined) {
+            const ticket = await getTicketByNumber(prize.winning_number);
+
+            if (ticket) {
+                winnerData = {
+                    ...winnerData,
+                    winner_ticket_id: ticket.id,
+                    winner_buyer_name: ticket.buyerName,
+                    winner_buyer_phone: ticket.buyerPhoneNumber,
+                    winner_seller_name: ticket.sellerName,
+                    winner_ticket_numbers: ticket.numbers,
+                };
+            }
+        }
+        winners.push(winnerData);
+    }
+    
+    return winners;
 }

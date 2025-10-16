@@ -1,11 +1,12 @@
 
+
 'use client';
 
 import * as React from 'react';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Ticket, Prize, Seller } from '@/lib/types';
+import { Ticket, Prize, Seller, Winner } from '@/lib/types';
 import { Tab, Tabs, TabList, TabPanel } from 'react-tabs';
 import 'react-tabs/style/react-tabs.css';
 import { Button } from '@/components/ui/button';
@@ -14,9 +15,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FileDown, Pencil, Shield, Menu, Home as HomeIcon, Users, BarChart, LogOut, Trophy, Ticket as TicketIcon } from 'lucide-react';
+import { FileDown, Pencil, Shield, Menu, Home as HomeIcon, Users, BarChart, LogOut, Trophy, Ticket as TicketIcon, Save } from 'lucide-react';
 import { getTickets } from '@/app/actions/ticket-actions';
-import { getPrizes, updatePrize } from '@/app/actions/prize-actions';
+import { getPrizes, updatePrize, setWinningNumber, getWinnersData } from '@/app/actions/prize-actions';
 import { getSellers, verifySession, clearSessionToken } from '@/app/actions/seller-actions';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
@@ -113,13 +114,11 @@ export default function AdminPage() {
   const router = useRouter();
   const [loggedInSeller, setLoggedInSeller] = useState<Seller | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [winners, setWinners] = useState<{[prizeOrder: number]: Ticket | null}>({});
-  const [eligibleTickets, setEligibleTickets] = useState<Ticket[]>([]);
-  const [prizeToDraw, setPrizeToDraw] = useState<Prize | null>(null);
-
-  useEffect(() => {
-    setEligibleTickets(tickets.filter(t => !Object.values(winners).some(w => w?.id === t.id)));
-  }, [tickets, winners]);
+  
+  // State for winners tab
+  const [winners, setWinners] = useState<Winner[]>([]);
+  const [loadingWinners, setLoadingWinners] = useState(true);
+  const [winningNumberInputs, setWinningNumberInputs] = useState<Record<number, string>>({});
 
 
   const handleLogout = React.useCallback(async (isInvalidSession = false) => {
@@ -139,6 +138,30 @@ export default function AdminPage() {
         toast({ title: 'Sesión cerrada', description: 'Has cerrado sesión correctamente.' });
     }
   }, [loggedInSeller, router, toast]);
+
+  const fetchWinnerData = React.useCallback(async () => {
+        setLoadingWinners(true);
+        try {
+            const winnersData = await getWinnersData();
+            setWinners(winnersData);
+            
+            // Initialize input fields with existing winning numbers
+            const initialInputs: Record<number, string> = {};
+            winnersData.forEach(w => {
+                if (w.winning_number) {
+                    initialInputs[w.id] = String(w.winning_number);
+                }
+            });
+            setWinningNumberInputs(initialInputs);
+
+        } catch (error) {
+            console.error("Failed to fetch winners data:", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar los datos de los ganadores.' });
+        } finally {
+            setLoadingWinners(false);
+        }
+    }, [toast]);
+
 
   useEffect(() => {
     const sellerDataString = localStorage.getItem('loggedInSeller');
@@ -187,9 +210,9 @@ export default function AdminPage() {
                 getSellers(),
             ]);
             setTickets(dbTickets);
-            setEligibleTickets(dbTickets);
             setPrizes(dbPrizes);
             setSellers(dbSellers);
+            await fetchWinnerData(); // Fetch winners data
         } catch (err) {
             console.error("Failed to load data", err);
             toast({
@@ -299,44 +322,33 @@ export default function AdminPage() {
     doc.save('estadisticas_venta.pdf');
   };
 
-  const handleDrawWinner = () => {
-    if (!prizeToDraw) return;
+  const handleWinningNumberChange = (prizeId: number, value: string) => {
+    setWinningNumberInputs(prev => ({ ...prev, [prizeId]: value }));
+  };
+
+  const handleSaveWinningNumber = async (prizeId: number) => {
+    const numberStr = winningNumberInputs[prizeId] ?? '';
+    const number = numberStr ? parseInt(numberStr, 10) : null;
     
-    if (eligibleTickets.length === 0) {
+    if (numberStr && (isNaN(number!) || number! < 0 || number! > 999)) {
         toast({
             variant: "destructive",
-            title: "No hay tickets elegibles",
-            description: "Todos los tickets ya han sido asignados como ganadores."
+            title: "Número inválido",
+            description: "Por favor, ingresa un número entre 0 y 999."
         });
-        setPrizeToDraw(null);
         return;
     }
-
-    const winnerIndex = Math.floor(Math.random() * eligibleTickets.length);
-    const winnerTicket = eligibleTickets[winnerIndex];
-
-    setWinners(prev => ({
-        ...prev,
-        [prizeToDraw.prize_order]: winnerTicket,
-    }));
     
-    toast({
-      variant: 'success',
-      title: `¡Ganador del ${prizeToDraw.prize_order}° Premio!`,
-      description: `El ganador es ${winnerTicket.buyerName}.`,
-    });
-
-    setPrizeToDraw(null);
-  }
-
-  const promptDrawWinner = (prize: Prize) => {
-    if (winners[prize.prize_order]) {
-        // If there's already a winner, we still allow to re-draw.
-        setPrizeToDraw(prize);
+    setIsSaving(true);
+    const result = await setWinningNumber(prizeId, number);
+    if (result.success) {
+        toast({ variant: 'success', title: 'Guardado', description: 'Número ganador actualizado.' });
+        await fetchWinnerData(); // Refresh winner data
     } else {
-        setPrizeToDraw(prize);
+        toast({ variant: 'destructive', title: 'Error', description: result.message });
     }
-  }
+    setIsSaving(false);
+};
 
 
   if (loading || !isAdmin) {
@@ -475,55 +487,79 @@ export default function AdminPage() {
                   <CardHeader>
                       <CardTitle className="flex items-center gap-2">
                         <Trophy className="w-6 h-6 text-yellow-500" />
-                        Sorteo de Ganadores
+                        Asignar Ganadores
                       </CardTitle>
                       <CardDescription>
-                          Realiza el sorteo para cada premio. Los tickets ganadores no podrán participar por otros premios.
+                          Ingresa el número ganador para cada premio. El sistema encontrará al comprador.
                       </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-8">
-                      {prizes.map(prize => (
+                     {loadingWinners ? (
+                         <div className="flex justify-center items-center p-8">
+                             <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                         </div>
+                     ) : (
+                      winners.map(prize => (
                           <div key={prize.id}>
                               <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 border rounded-lg bg-muted/50">
-                                <div className="text-center md:text-left">
+                                <div className="flex-grow text-center md:text-left">
                                   <h3 className="font-bold text-lg">{prize.prize_order}° Premio: <span className="font-normal">{prize.title}</span></h3>
-                                  <p className="text-sm text-muted-foreground">
-                                    {eligibleTickets.length} tickets elegibles para este sorteo.
-                                  </p>
                                 </div>
-                                <Button onClick={() => promptDrawWinner(prize)} disabled={tickets.length === 0}>
-                                  <TicketIcon className="mr-2"/>
-                                  {winners[prize.prize_order] ? 'Volver a Sortear' : 'Sortear Ganador'}
-                                </Button>
+                                <div className="flex items-center gap-2">
+                                    <Label htmlFor={`winner-input-${prize.id}`} className="text-sm font-medium">Nº Ganador:</Label>
+                                    <Input 
+                                      id={`winner-input-${prize.id}`}
+                                      type="number"
+                                      placeholder="XXXX"
+                                      className="w-28 font-mono"
+                                      value={winningNumberInputs[prize.id] || ''}
+                                      onChange={(e) => handleWinningNumberChange(prize.id, e.target.value)}
+                                      min="0"
+                                      max="999"
+                                    />
+                                    <Button onClick={() => handleSaveWinningNumber(prize.id)} disabled={isSaving}>
+                                        {isSaving ? <Loader2 className="animate-spin" /> : <Save />}
+                                        Guardar
+                                    </Button>
+                                </div>
                               </div>
 
-                              {winners[prize.prize_order] && (
-                                <Card className="mt-4 border-primary shadow-lg">
+                              {prize.winning_number && (
+                                <Card className={`mt-4 shadow-lg ${prize.winner_buyer_name ? 'border-primary' : 'border-destructive'}`}>
                                   <CardHeader>
-                                    <CardTitle className="text-primary flex items-center gap-2">
+                                    <CardTitle className={`${prize.winner_buyer_name ? 'text-primary' : 'text-destructive'} flex items-center gap-2`}>
                                       <Trophy className="w-5 h-5"/>
-                                      Ganador del {prize.prize_order}° Premio
+                                      {prize.winner_buyer_name ? `Ganador del ${prize.prize_order}° Premio` : `Número no encontrado`}
                                     </CardTitle>
                                   </CardHeader>
                                   <CardContent>
-                                      <p><span className="font-semibold">Comprador:</span> {winners[prize.prize_order]?.buyerName}</p>
-                                      <p><span className="font-semibold">Teléfono:</span> {winners[prize.prize_order]?.buyerPhoneNumber}</p>
-                                      <p><span className="font-semibold">Vendido por:</span> {winners[prize.prize_order]?.sellerName}</p>
-                                      <div className="mt-2">
-                                          <span className="font-semibold">Números: </span>
-                                          <div className="inline-flex gap-2 mt-1">
-                                              {winners[prize.prize_order]?.numbers.map((num, i) => (
-                                                  <span key={i} className="font-mono bg-primary text-primary-foreground px-2 py-1 rounded-md">
-                                                      {String(num).padStart(3, '0')}
-                                                  </span>
-                                              ))}
+                                    {prize.winner_buyer_name ? (
+                                      <>
+                                          <p><span className="font-semibold">Comprador:</span> {prize.winner_buyer_name}</p>
+                                          <p><span className="font-semibold">Teléfono:</span> {prize.winner_buyer_phone}</p>
+                                          <p><span className="font-semibold">Vendido por:</span> {prize.winner_seller_name}</p>
+                                          <div className="mt-2">
+                                              <span className="font-semibold">Ticket Ganador (Nº {prize.winner_ticket_id}): </span>
+                                              <div className="inline-flex gap-2 mt-1">
+                                                  {prize.winner_ticket_numbers?.map((num) => (
+                                                      <span key={num} className={`font-mono px-2 py-1 rounded-md ${num === prize.winning_number ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                                                          {String(num).padStart(3, '0')}
+                                                      </span>
+                                                  ))}
+                                              </div>
                                           </div>
-                                      </div>
+                                      </>
+                                      ) : (
+                                        <p className="text-muted-foreground">
+                                          El número ganador <span className="font-bold font-mono">{String(prize.winning_number).padStart(3, '0')}</span> no fue vendido. El premio queda vacante o se debe volver a sortear según las reglas.
+                                        </p>
+                                      )}
                                   </CardContent>
                                 </Card>
                               )}
                           </div>
-                      ))}
+                      ))
+                     )}
                   </CardContent>
               </Card>
           </TabPanel>
@@ -636,27 +672,6 @@ export default function AdminPage() {
                 </CardContent>
             </Card>
         </div>
-      )}
-
-      {prizeToDraw && (
-        <AlertDialog open={!!prizeToDraw} onOpenChange={(open) => !open && setPrizeToDraw(null)}>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                <AlertDialogTitle>Confirmar Sorteo</AlertDialogTitle>
-                <AlertDialogDescription>
-                    {winners[prizeToDraw.prize_order] 
-                        ? `Ya existe un ganador para el ${prizeToDraw.prize_order}° Premio. ¿Estás seguro de que quieres volver a sortearlo? El ganador anterior será reemplazado.`
-                        : `Estás a punto de sortear un ganador para el ${prizeToDraw.prize_order}° Premio. ¿Estás seguro?`}
-                </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                <AlertDialogCancel onClick={() => setPrizeToDraw(null)}>Cancelar</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDrawWinner}>
-                    {winners[prizeToDraw.prize_order] ? 'Sí, volver a sortear' : 'Sí, sortear ahora'}
-                </AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
       )}
     </div>
   );
