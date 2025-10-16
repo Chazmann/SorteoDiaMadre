@@ -14,12 +14,22 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FileDown, Pencil, Shield, Menu, Home as HomeIcon, Users, BarChart, LogOut } from 'lucide-react';
+import { FileDown, Pencil, Shield, Menu, Home as HomeIcon, Users, BarChart, LogOut, Trophy, Ticket as TicketIcon } from 'lucide-react';
 import { getTickets } from '@/app/actions/ticket-actions';
 import { getPrizes, updatePrize } from '@/app/actions/prize-actions';
 import { getSellers, verifySession, clearSessionToken } from '@/app/actions/seller-actions';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -103,6 +113,13 @@ export default function AdminPage() {
   const router = useRouter();
   const [loggedInSeller, setLoggedInSeller] = useState<Seller | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [winners, setWinners] = useState<{[prizeOrder: number]: Ticket | null}>({});
+  const [eligibleTickets, setEligibleTickets] = useState<Ticket[]>([]);
+  const [prizeToDraw, setPrizeToDraw] = useState<Prize | null>(null);
+
+  useEffect(() => {
+    setEligibleTickets(tickets.filter(t => !Object.values(winners).some(w => w?.id === t.id)));
+  }, [tickets, winners]);
 
 
   const handleLogout = React.useCallback(async (isInvalidSession = false) => {
@@ -170,6 +187,7 @@ export default function AdminPage() {
                 getSellers(),
             ]);
             setTickets(dbTickets);
+            setEligibleTickets(dbTickets);
             setPrizes(dbPrizes);
             setSellers(dbSellers);
         } catch (err) {
@@ -281,6 +299,45 @@ export default function AdminPage() {
     doc.save('estadisticas_venta.pdf');
   };
 
+  const handleDrawWinner = () => {
+    if (!prizeToDraw) return;
+    
+    if (eligibleTickets.length === 0) {
+        toast({
+            variant: "destructive",
+            title: "No hay tickets elegibles",
+            description: "Todos los tickets ya han sido asignados como ganadores."
+        });
+        setPrizeToDraw(null);
+        return;
+    }
+
+    const winnerIndex = Math.floor(Math.random() * eligibleTickets.length);
+    const winnerTicket = eligibleTickets[winnerIndex];
+
+    setWinners(prev => ({
+        ...prev,
+        [prizeToDraw.prize_order]: winnerTicket,
+    }));
+    
+    toast({
+      variant: 'success',
+      title: `¡Ganador del ${prizeToDraw.prize_order}° Premio!`,
+      description: `El ganador es ${winnerTicket.buyerName}.`,
+    });
+
+    setPrizeToDraw(null);
+  }
+
+  const promptDrawWinner = (prize: Prize) => {
+    if (winners[prize.prize_order]) {
+        // If there's already a winner, we still allow to re-draw.
+        setPrizeToDraw(prize);
+    } else {
+        setPrizeToDraw(prize);
+    }
+  }
+
 
   if (loading || !isAdmin) {
     return (
@@ -328,13 +385,14 @@ export default function AdminPage() {
             <Shield />
             Panel de Administración
         </h1>
-        <p className="text-xl text-muted-foreground mt-2">Gestiona los premios y los tickets del sorteo.</p>
+        <p className="text-xl text-muted-foreground mt-2">Gestiona los premios, tickets y ganadores del sorteo.</p>
       </header>
 
       <Tabs>
         <TabList>
           <Tab>Tickets Asignados</Tab>
           {isAdmin && <Tab>Gestionar Premios</Tab>}
+          {isAdmin && <Tab>Ganadores</Tab>}
           <Tab>Estadísticas</Tab>
         </TabList>
 
@@ -408,6 +466,66 @@ export default function AdminPage() {
                   </div>
               </CardContent>
             </Card>
+          </TabPanel>
+        )}
+        
+        {isAdmin && (
+          <TabPanel>
+              <Card>
+                  <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Trophy className="w-6 h-6 text-yellow-500" />
+                        Sorteo de Ganadores
+                      </CardTitle>
+                      <CardDescription>
+                          Realiza el sorteo para cada premio. Los tickets ganadores no podrán participar por otros premios.
+                      </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-8">
+                      {prizes.map(prize => (
+                          <div key={prize.id}>
+                              <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 border rounded-lg bg-muted/50">
+                                <div className="text-center md:text-left">
+                                  <h3 className="font-bold text-lg">{prize.prize_order}° Premio: <span className="font-normal">{prize.title}</span></h3>
+                                  <p className="text-sm text-muted-foreground">
+                                    {eligibleTickets.length} tickets elegibles para este sorteo.
+                                  </p>
+                                </div>
+                                <Button onClick={() => promptDrawWinner(prize)} disabled={tickets.length === 0}>
+                                  <TicketIcon className="mr-2"/>
+                                  {winners[prize.prize_order] ? 'Volver a Sortear' : 'Sortear Ganador'}
+                                </Button>
+                              </div>
+
+                              {winners[prize.prize_order] && (
+                                <Card className="mt-4 border-primary shadow-lg">
+                                  <CardHeader>
+                                    <CardTitle className="text-primary flex items-center gap-2">
+                                      <Trophy className="w-5 h-5"/>
+                                      Ganador del {prize.prize_order}° Premio
+                                    </CardTitle>
+                                  </CardHeader>
+                                  <CardContent>
+                                      <p><span className="font-semibold">Comprador:</span> {winners[prize.prize_order]?.buyerName}</p>
+                                      <p><span className="font-semibold">Teléfono:</span> {winners[prize.prize_order]?.buyerPhoneNumber}</p>
+                                      <p><span className="font-semibold">Vendido por:</span> {winners[prize.prize_order]?.sellerName}</p>
+                                      <div className="mt-2">
+                                          <span className="font-semibold">Números: </span>
+                                          <div className="inline-flex gap-2 mt-1">
+                                              {winners[prize.prize_order]?.numbers.map((num, i) => (
+                                                  <span key={i} className="font-mono bg-primary text-primary-foreground px-2 py-1 rounded-md">
+                                                      {String(num).padStart(3, '0')}
+                                                  </span>
+                                              ))}
+                                          </div>
+                                      </div>
+                                  </CardContent>
+                                </Card>
+                              )}
+                          </div>
+                      ))}
+                  </CardContent>
+              </Card>
           </TabPanel>
         )}
 
@@ -519,6 +637,27 @@ export default function AdminPage() {
             </Card>
         </div>
       )}
+
+      {prizeToDraw && (
+        <AlertDialog open={!!prizeToDraw} onOpenChange={(open) => !open && setPrizeToDraw(null)}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                <AlertDialogTitle>Confirmar Sorteo</AlertDialogTitle>
+                <AlertDialogDescription>
+                    {winners[prizeToDraw.prize_order] 
+                        ? `Ya existe un ganador para el ${prizeToDraw.prize_order}° Premio. ¿Estás seguro de que quieres volver a sortearlo? El ganador anterior será reemplazado.`
+                        : `Estás a punto de sortear un ganador para el ${prizeToDraw.prize_order}° Premio. ¿Estás seguro?`}
+                </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setPrizeToDraw(null)}>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDrawWinner}>
+                    {winners[prizeToDraw.prize_order] ? 'Sí, volver a sortear' : 'Sí, sortear ahora'}
+                </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
 }
@@ -567,3 +706,5 @@ if (styleSheet) {
     styleSheet.innerText = adminPageStyle;
     document.head.appendChild(styleSheet);
 }
+
+    
