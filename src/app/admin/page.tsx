@@ -354,7 +354,14 @@ export default function AdminPage() {
   };
 
   const handleExportWinnerCard = async (winnerData: Winner) => {
-    if (!winnerData.winner_buyer_name || !winnerData.winning_number) return;
+    if (!winnerData.winner_buyer_name || !winnerData.winning_number || !winnerData.winner_ticket_id || !winnerData.winner_ticket_numbers) {
+        toast({
+            variant: "destructive",
+            title: "Datos incompletos",
+            description: "Faltan datos del ganador para generar la tarjeta."
+        });
+        return;
+    };
 
     setIsExportingWinner(winnerData.id);
     try {
@@ -363,6 +370,8 @@ export default function AdminPage() {
             prizeTitle: winnerData.title,
             winningNumber: winnerData.winning_number,
             buyerName: winnerData.winner_buyer_name,
+            ticketId: winnerData.winner_ticket_id,
+            ticketNumbers: winnerData.winner_ticket_numbers,
         });
 
         if (result.image) {

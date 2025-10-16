@@ -15,6 +15,8 @@ const GenerateWinnerImageInputSchema = z.object({
   prizeTitle: z.string().describe("The title of the prize won."),
   winningNumber: z.number().describe("The winning number."),
   buyerName: z.string().describe("The name of the winner."),
+  ticketId: z.string().describe("The ID of the winning ticket."),
+  ticketNumbers: z.array(z.number()).describe("The numbers on the winning ticket."),
 });
 export type GenerateWinnerImageInput = z.infer<typeof GenerateWinnerImageInputSchema>;
 
@@ -26,8 +28,8 @@ export type GenerateWinnerImageOutput = z.infer<typeof GenerateWinnerImageOutput
 
 const generateSvgTemplate = (input: GenerateWinnerImageInput): string => {
   // Function to escape special XML/HTML characters
-  const escape = (str: string) => {
-    return str
+  const escape = (str: string | number) => {
+    return String(str)
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
@@ -35,13 +37,19 @@ const generateSvgTemplate = (input: GenerateWinnerImageInput): string => {
       .replace(/'/g, '&apos;');
   };
 
-  const prizeOrder = escape(String(input.prizeOrder));
+  const prizeOrder = escape(input.prizeOrder);
   const buyerName = escape(input.buyerName);
   const prizeTitle = escape(input.prizeTitle);
   const winningNumber = escape(String(input.winningNumber).padStart(3, '0'));
+  const ticketId = escape(String(input.ticketId).padStart(3, '0'));
+  
+  const ticketNumbersHtml = input.ticketNumbers
+    .map(num => `<span class="ticket-number ${num === input.winningNumber ? 'is-winner' : ''}">${escape(String(num).padStart(3, '0'))}</span>`)
+    .join(' ');
+
 
   return `
-    <svg width="500" height="300" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <svg width="500" height="350" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
       <defs>
         <style>
           @import url('https://fonts.googleapis.com/css2?family=Belleza&amp;family=Playfair+Display:wght@700&amp;family=Teko:wght@600&amp;display=swap');
@@ -68,19 +76,42 @@ const generateSvgTemplate = (input: GenerateWinnerImageInput): string => {
           .winner-name {
             font-family: 'Belleza', sans-serif;
             font-size: 24px;
-            margin: 8px 0;
+            margin: 4px 0;
             font-weight: bold;
           }
           .prize-details {
-            margin-top: 15px;
+            margin-top: 10px;
             font-size: 18px;
           }
           .prize-title {
             font-weight: bold;
             color: #E91E63;
           }
+          .ticket-info {
+            margin-top: 10px;
+            font-size: 13px;
+            color: #555;
+          }
+          .ticket-numbers-container {
+            display: flex;
+            gap: 8px;
+            margin-top: 4px;
+          }
+          .ticket-number {
+            font-mono: true;
+            font-family: 'Teko', sans-serif;
+            font-size: 20px;
+            background-color: rgba(0,0,0,0.05);
+            padding: 2px 6px;
+            border-radius: 4px;
+          }
+          .ticket-number.is-winner {
+            background-color: #D4AF37;
+            color: white;
+            font-weight: bold;
+          }
           .winning-number-box {
-            margin-top: 20px;
+            margin-top: 15px;
           }
           .winning-number-label {
             font-size: 14px;
@@ -107,13 +138,19 @@ const generateSvgTemplate = (input: GenerateWinnerImageInput): string => {
         </linearGradient>
       </defs>
       <rect width="100%" height="100%" fill="url(#grad)" />
-      <foreignObject width="500" height="300">
+      <foreignObject width="500" height="350">
         <div xmlns="http://www.w3.org/1999/xhtml" class="container">
           <div class="header">¡Felicidades!</div>
           <div class="winner-name">${buyerName}</div>
           <div class="prize-details">
             Has ganado el <strong>${prizeOrder}° Premio</strong>:
             <div class="prize-title">${prizeTitle}</div>
+          </div>
+          <div class="ticket-info">
+            <div>Ticket #${ticketId} - Tus números:</div>
+            <div class="ticket-numbers-container">
+              ${ticketNumbersHtml}
+            </div>
           </div>
           <div class="winning-number-box">
             <div class="winning-number-label">con el número ganador</div>
