@@ -40,6 +40,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from '@/components/ui/skeleton';
+import { Separator } from '@/components/ui/separator';
 
 
 const GENERIC_PRIZE_IMAGE_URL = "/generic-prize.jpg";
@@ -582,22 +583,27 @@ export default function AdminPage() {
                                         </Button>
                                     )}
                                   </CardHeader>
-                                  <CardContent>
+                                  <CardContent className="grid gap-4">
                                     {prize.winner_buyer_name ? (
                                       <>
-                                          <p><span className="font-semibold">Comprador:</span> {prize.winner_buyer_name}</p>
-                                          <p><span className="font-semibold">Teléfono:</span> {prize.winner_buyer_phone}</p>
-                                          <p><span className="font-semibold">Vendido por:</span> {prize.winner_seller_name}</p>
-                                          <div className="mt-2">
-                                              <span className="font-semibold">Ticket Ganador (Nº {prize.winner_ticket_id}): </span>
-                                              <div className="inline-flex gap-2 mt-1">
+                                          <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                                            <p><span className="font-semibold text-muted-foreground">Comprador:</span><br/> {prize.winner_buyer_name}</p>
+                                            <p><span className="font-semibold text-muted-foreground">Teléfono:</span><br/> {prize.winner_buyer_phone}</p>
+                                            <p><span className="font-semibold text-muted-foreground">Vendido por:</span><br/> {prize.winner_seller_name}</p>
+                                          </div>
+                                          <Separator />
+                                          <div>
+                                              <p className="font-semibold text-muted-foreground">Ticket Ganador #{String(prize.winner_ticket_id).padStart(3, '0')}</p>
+                                              <p className="font-semibold text-muted-foreground mt-1">Tus números:</p>
+                                              <div className="flex gap-2 mt-1">
                                                   {prize.winner_ticket_numbers?.map((num) => (
-                                                      <span key={num} className={`font-mono px-2 py-1 rounded-md ${num === prize.winning_number ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                                                      <span key={num} className={`font-mono px-2 py-1 rounded-md text-sm ${num === prize.winning_number ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
                                                           {String(num).padStart(3, '0')}
                                                       </span>
                                                   ))}
                                               </div>
                                           </div>
+                                          <p className="text-center text-sm text-muted-foreground pt-2">¡Gracias por participar!</p>
                                       </>
                                       ) : (
                                         <p className="text-muted-foreground">
