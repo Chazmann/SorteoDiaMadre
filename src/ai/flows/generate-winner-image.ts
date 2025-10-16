@@ -8,8 +8,7 @@
  * - GenerateWinnerImageOutput - The return type for the generateWinnerImage function.
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import {z} from 'zod';
 
 const GenerateWinnerImageInputSchema = z.object({
   prizeOrder: z.number().describe("The order of the prize (e.g., 1 for 1st prize)."),
@@ -24,11 +23,23 @@ const GenerateWinnerImageOutputSchema = z.object({
 });
 export type GenerateWinnerImageOutput = z.infer<typeof GenerateWinnerImageOutputSchema>;
 
-export async function generateWinnerImage(input: GenerateWinnerImageInput): Promise<GenerateWinnerImageOutput> {
-  return generateWinnerImageFlow(input);
-}
 
 const generateSvgTemplate = (input: GenerateWinnerImageInput): string => {
+  // Function to escape special XML/HTML characters
+  const escape = (str: string) => {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+  };
+
+  const prizeOrder = escape(String(input.prizeOrder));
+  const buyerName = escape(input.buyerName);
+  const prizeTitle = escape(input.prizeTitle);
+  const winningNumber = escape(String(input.winningNumber).padStart(3, '0'));
+
   return `
     <svg width="500" height="300" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
       <defs>
@@ -90,42 +101,40 @@ const generateSvgTemplate = (input: GenerateWinnerImageInput): string => {
             box-shadow: 0 4px 8px rgba(0,0,0,0.15);
           }
         </style>
+        <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:#FFF8E1;stop-opacity:1" />
+          <stop offset="100%" style="stop-color:#FFECB3;stop-opacity:1" />
+        </linearGradient>
       </defs>
       <rect width="100%" height="100%" fill="url(#grad)" />
       <foreignObject width="500" height="300">
         <div xmlns="http://www.w3.org/1999/xhtml" class="container">
           <div class="header">¡Felicidades!</div>
-          <div class="winner-name">${input.buyerName}</div>
+          <div class="winner-name">${buyerName}</div>
           <div class="prize-details">
-            Has ganado el <strong>${input.prizeOrder}° Premio</strong>:
-            <div class="prize-title">${input.prizeTitle}</div>
+            Has ganado el <strong>${prizeOrder}° Premio</strong>:
+            <div class="prize-title">${prizeTitle}</div>
           </div>
           <div class="winning-number-box">
             <div class="winning-number-label">con el número ganador</div>
-            <div class="winning-number">${String(input.winningNumber).padStart(3, '0')}</div>
+            <div class="winning-number">${winningNumber}</div>
           </div>
         </div>
       </foreignObject>
-       <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" style="stop-color:#FFF8E1;stop-opacity:1" />
-        <stop offset="100%" style="stop-color:#FFECB3;stop-opacity:1" />
-      </linearGradient>
     </svg>
   `;
 };
 
-
-const generateWinnerImageFlow = ai.defineFlow(
-  {
-    name: 'generateWinnerImageFlow',
-    inputSchema: GenerateWinnerImageInputSchema,
-    outputSchema: GenerateWinnerImageOutputSchema,
-  },
-  async input => {
-    const svgCode = generateSvgTemplate(input);
-    const svgDataUri = `data:image/svg+xml;base64,${Buffer.from(svgCode).toString('base64')}`;
-    return {
-      image: svgDataUri,
-    };
-  }
-);
+/**
+ * Generates an SVG image for a prize winner using a template.
+ * @param input - The winner's data.
+ * @returns An object containing the generated image as a data URI.
+ */
+export async function generateWinnerImage(input: GenerateWinnerImageInput): Promise<GenerateWinnerImageOutput> {
+  const svgCode = generateSvgTemplate(input);
+  const svgDataUri = `data:image/svg+xml;base64,${Buffer.from(svgCode).toString('base64')}`;
+  
+  return {
+    image: svgDataUri,
+  };
+}
