@@ -308,6 +308,10 @@ export default function AdminPage() {
   const filteredStats = statsSellerFilter === 'todos'
     ? sellerStats
     : sellerStats.filter(stat => stat.name === statsSellerFilter);
+  
+  const totalTicketsSold = sellerStats.reduce((acc, stat) => acc + stat.ticketsSold, 0);
+  const totalAmountCollected = totalTicketsSold * 5000;
+
 
   const handleExportStatsPDF = () => {
     const doc = new jsPDF();
@@ -321,6 +325,12 @@ export default function AdminPage() {
         stat.ticketsSold,
         `$${stat.totalCollected.toLocaleString('es-AR')}`
       ]),
+      foot: [[
+          'TOTAL',
+          filteredStats.reduce((sum, stat) => sum + stat.ticketsSold, 0),
+          `$${filteredStats.reduce((sum, stat) => sum + stat.totalCollected, 0).toLocaleString('es-AR')}`
+      ]],
+      footStyles: { fillColor: [220, 220, 220], textColor: 20, fontStyle: 'bold' }
     });
     doc.save('estadisticas_venta.pdf');
   };
@@ -632,14 +642,22 @@ export default function AdminPage() {
 
         <TabPanel>
             <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <BarChart className="w-6 h-6" />
-                        Estadísticas de Venta
-                    </CardTitle>
-                    <CardDescription>
-                        Visualiza la cantidad de tickets vendidos y el total recaudado por cada vendedor.
-                    </CardDescription>
+                <CardHeader className="flex-row items-center justify-between">
+                    <div>
+                        <CardTitle className="flex items-center gap-2">
+                            <BarChart className="w-6 h-6" />
+                            Estadísticas de Venta
+                        </CardTitle>
+                        <CardDescription>
+                            Visualiza la cantidad de tickets vendidos y el total recaudado.
+                        </CardDescription>
+                    </div>
+                     <div className="text-right">
+                        <p className="text-sm text-muted-foreground">Total Recaudado</p>
+                        <p className="text-2xl font-bold text-primary">
+                            ${totalAmountCollected.toLocaleString('es-AR')}
+                        </p>
+                    </div>
                 </CardHeader>
                 <CardContent>
                     <div className="flex justify-end items-center gap-4 mb-4">
