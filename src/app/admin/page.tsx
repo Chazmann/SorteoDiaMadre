@@ -1,11 +1,12 @@
 
+
 'use client';
 
 import * as React from 'react';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Ticket, Prize, Seller } from '@/lib/types';
+import { Ticket, Prize, Seller, Winner } from '@/lib/types';
 import { Tab, Tabs, TabList, TabPanel } from 'react-tabs';
 import 'react-tabs/style/react-tabs.css';
 import { Button } from '@/components/ui/button';
@@ -14,12 +15,23 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FileDown, Pencil, Shield, Menu, Home as HomeIcon, Users, BarChart, LogOut } from 'lucide-react';
+import { FileDown, Pencil, Shield, Menu, Home as HomeIcon, Users, BarChart, LogOut, Trophy, Ticket as TicketIcon, Save, Download } from 'lucide-react';
 import { getTickets } from '@/app/actions/ticket-actions';
-import { getPrizes, updatePrize } from '@/app/actions/prize-actions';
+import { getPrizes, updatePrize, setWinningNumber, getWinnersData } from '@/app/actions/prize-actions';
 import { getSellers, verifySession, clearSessionToken } from '@/app/actions/seller-actions';
+import { generateWinnerImage } from '@/ai/flows/generate-winner-image';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,6 +40,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from '@/components/ui/skeleton';
+import { Separator } from '@/components/ui/separator';
 
 
 const GENERIC_PRIZE_IMAGE_URL = "/generic-prize.jpg";
@@ -103,6 +116,12 @@ export default function AdminPage() {
   const router = useRouter();
   const [loggedInSeller, setLoggedInSeller] = useState<Seller | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  
+  // State for winners tab
+  const [winners, setWinners] = useState<Winner[]>([]);
+  const [loadingWinners, setLoadingWinners] = useState(true);
+  const [winningNumberInputs, setWinningNumberInputs] = useState<Record<number, string>>({});
+  const [isExportingWinner, setIsExportingWinner] = useState<number | null>(null);
 
 
   const handleLogout = React.useCallback(async (isInvalidSession = false) => {
@@ -122,6 +141,30 @@ export default function AdminPage() {
         toast({ title: 'Sesión cerrada', description: 'Has cerrado sesión correctamente.' });
     }
   }, [loggedInSeller, router, toast]);
+
+  const fetchWinnerData = React.useCallback(async () => {
+        setLoadingWinners(true);
+        try {
+            const winnersData = await getWinnersData();
+            setWinners(winnersData);
+            
+            // Initialize input fields with existing winning numbers
+            const initialInputs: Record<number, string> = {};
+            winnersData.forEach(w => {
+                if (w.winning_number) {
+                    initialInputs[w.id] = String(w.winning_number);
+                }
+            });
+            setWinningNumberInputs(initialInputs);
+
+        } catch (error) {
+            console.error("Failed to fetch winners data:", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar los datos de los ganadores.' });
+        } finally {
+            setLoadingWinners(false);
+        }
+    }, [toast]);
+
 
   useEffect(() => {
     const sellerDataString = localStorage.getItem('loggedInSeller');
@@ -172,6 +215,7 @@ export default function AdminPage() {
             setTickets(dbTickets);
             setPrizes(dbPrizes);
             setSellers(dbSellers);
+            await fetchWinnerData(); // Fetch winners data
         } catch (err) {
             console.error("Failed to load data", err);
             toast({
@@ -201,7 +245,7 @@ export default function AdminPage() {
         ticket.paymentMethod || 'N/A'
       ]),
     });
-    doc.save('tickets.pdf');
+    doc.save('tickets_generados.pdf');
   };
 
   const handleEditPrize = (prize: Prize) => {
@@ -250,7 +294,7 @@ export default function AdminPage() {
   
   const sortedTickets = [...tickets].sort((a,b) => parseInt(a.id) - parseInt(b.id));
 
-  // Calculate stats
+  // Calculate stats and sort them by ticketsSold in descending order
   const sellerStats = sellers.map(seller => {
       const sellerTickets = tickets.filter(ticket => ticket.sellerName === seller.name);
       return {
@@ -259,11 +303,98 @@ export default function AdminPage() {
           ticketsSold: sellerTickets.length,
           totalCollected: sellerTickets.length * 5000, // Assuming 5000 per ticket
       };
-  });
+  }).sort((a, b) => b.ticketsSold - a.ticketsSold);
   
   const filteredStats = statsSellerFilter === 'todos'
     ? sellerStats
     : sellerStats.filter(stat => stat.name === statsSellerFilter);
+
+  const handleExportStatsPDF = () => {
+    const doc = new jsPDF();
+    const filterText = statsSellerFilter === 'todos' ? 'Todos los Vendedores' : statsSellerFilter;
+    doc.text(`Estadísticas de Venta - Filtro: ${filterText}`, 14, 15);
+    doc.autoTable({
+      startY: 20,
+      head: [['Vendedor', 'Tickets Vendidos', 'Total Recaudado']],
+      body: filteredStats.map(stat => [
+        stat.name,
+        stat.ticketsSold,
+        `$${stat.totalCollected.toLocaleString('es-AR')}`
+      ]),
+    });
+    doc.save('estadisticas_venta.pdf');
+  };
+
+  const handleWinningNumberChange = (prizeId: number, value: string) => {
+    setWinningNumberInputs(prev => ({ ...prev, [prizeId]: value }));
+  };
+
+  const handleSaveWinningNumber = async (prizeId: number) => {
+    const numberStr = winningNumberInputs[prizeId] ?? '';
+    const number = numberStr ? parseInt(numberStr, 10) : null;
+    
+    if (numberStr && (isNaN(number!) || number! < 0 || number! > 999)) {
+        toast({
+            variant: "destructive",
+            title: "Número inválido",
+            description: "Por favor, ingresa un número entre 0 y 999."
+        });
+        return;
+    }
+    
+    setIsSaving(true);
+    const result = await setWinningNumber(prizeId, number);
+    if (result.success) {
+        toast({ variant: 'success', title: 'Guardado', description: 'Número ganador actualizado.' });
+        await fetchWinnerData(); // Refresh winner data
+    } else {
+        toast({ variant: 'destructive', title: 'Error', description: result.message });
+    }
+    setIsSaving(false);
+  };
+
+  const handleExportWinnerCard = async (winnerData: Winner) => {
+    if (!winnerData.winner_buyer_name || !winnerData.winning_number || !winnerData.winner_ticket_id || !winnerData.winner_ticket_numbers) {
+        toast({
+            variant: "destructive",
+            title: "Datos incompletos",
+            description: "Faltan datos del ganador para generar la tarjeta."
+        });
+        return;
+    };
+
+    setIsExportingWinner(winnerData.id);
+    try {
+        const result = await generateWinnerImage({
+            prizeOrder: winnerData.prize_order,
+            prizeTitle: winnerData.title,
+            winningNumber: winnerData.winning_number,
+            buyerName: winnerData.winner_buyer_name,
+            ticketId: winnerData.winner_ticket_id,
+            ticketNumbers: winnerData.winner_ticket_numbers,
+        });
+
+        if (result.image) {
+            const link = document.createElement("a");
+            link.href = result.image;
+            link.download = `ganador_${winnerData.prize_order}_premio.svg`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } else {
+            throw new Error("La generación de la imagen no devolvió una imagen.");
+        }
+    } catch (error) {
+        console.error("Error exporting winner card:", error);
+        toast({
+            variant: "destructive",
+            title: "Error de Exportación",
+            description: "No se pudo generar la tarjeta del ganador."
+        });
+    } finally {
+        setIsExportingWinner(null);
+    }
+  };
 
 
   if (loading || !isAdmin) {
@@ -312,13 +443,14 @@ export default function AdminPage() {
             <Shield />
             Panel de Administración
         </h1>
-        <p className="text-xl text-muted-foreground mt-2">Gestiona los premios y los tickets del sorteo.</p>
+        <p className="text-xl text-muted-foreground mt-2">Gestiona los premios, tickets y ganadores del sorteo.</p>
       </header>
 
       <Tabs>
         <TabList>
           <Tab>Tickets Asignados</Tab>
           {isAdmin && <Tab>Gestionar Premios</Tab>}
+          {isAdmin && <Tab>Ganadores</Tab>}
           <Tab>Estadísticas</Tab>
         </TabList>
 
@@ -394,6 +526,109 @@ export default function AdminPage() {
             </Card>
           </TabPanel>
         )}
+        
+        {isAdmin && (
+          <TabPanel>
+              <Card>
+                  <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Trophy className="w-6 h-6 text-yellow-500" />
+                        Asignar Ganadores
+                      </CardTitle>
+                      <CardDescription>
+                          Ingresa el número ganador para cada premio. El sistema encontrará al comprador.
+                      </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-8">
+                     {loadingWinners ? (
+                         <div className="flex justify-center items-center p-8">
+                             <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                         </div>
+                     ) : (
+                      winners.map(prize => (
+                          <div key={prize.id}>
+                              <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 border rounded-lg bg-muted/50">
+                                <div className="flex-grow text-center md:text-left">
+                                  <h3 className="font-bold text-lg">{prize.prize_order}° Premio: <span className="font-normal">{prize.title}</span></h3>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <Label htmlFor={`winner-input-${prize.id}`} className="text-sm font-medium">Nº Ganador:</Label>
+                                    <Input 
+                                      id={`winner-input-${prize.id}`}
+                                      type="number"
+                                      placeholder="XXXX"
+                                      className="w-28 font-mono"
+                                      value={winningNumberInputs[prize.id] || ''}
+                                      onChange={(e) => handleWinningNumberChange(prize.id, e.target.value)}
+                                      min="0"
+                                      max="999"
+                                    />
+                                    <Button onClick={() => handleSaveWinningNumber(prize.id)} disabled={isSaving}>
+                                        {isSaving ? <Loader2 className="animate-spin" /> : <Save />}
+                                        Guardar
+                                    </Button>
+                                </div>
+                              </div>
+
+                              {prize.winning_number && (
+                                <Card className={`mt-4 shadow-lg ${prize.winner_buyer_name ? 'border-primary' : 'border-destructive'}`}>
+                                  <CardHeader className="flex flex-row justify-between items-start">
+                                    <div>
+                                        <CardTitle className={`${prize.winner_buyer_name ? 'text-primary' : 'text-destructive'} flex items-center gap-2`}>
+                                        <Trophy className="w-5 h-5"/>
+                                        {prize.winner_buyer_name ? `Ganador del ${prize.prize_order}° Premio` : `Número no encontrado`}
+                                        </CardTitle>
+                                        <CardDescription className="mt-1">{prize.title}</CardDescription>
+                                    </div>
+                                    {prize.winner_buyer_name && (
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => handleExportWinnerCard(prize)}
+                                            disabled={isExportingWinner === prize.id}
+                                        >
+                                            {isExportingWinner === prize.id ? <Loader2 className="animate-spin" /> : <Download />}
+                                            Exportar
+                                        </Button>
+                                    )}
+                                  </CardHeader>
+                                  <CardContent className="grid gap-4">
+                                    {prize.winner_buyer_name ? (
+                                      <>
+                                          <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                                            <p><span className="font-semibold text-muted-foreground">Comprador:</span><br/> {prize.winner_buyer_name}</p>
+                                            <p><span className="font-semibold text-muted-foreground">Teléfono:</span><br/> {prize.winner_buyer_phone}</p>
+                                            <p><span className="font-semibold text-muted-foreground">Vendido por:</span><br/> {prize.winner_seller_name}</p>
+                                          </div>
+                                          <Separator />
+                                          <div>
+                                              <p className="font-semibold text-muted-foreground">Ticket Ganador #{String(prize.winner_ticket_id).padStart(3, '0')}</p>
+                                              <p className="font-semibold text-muted-foreground mt-1">Tus números:</p>
+                                              <div className="flex gap-2 mt-1">
+                                                  {prize.winner_ticket_numbers?.map((num) => (
+                                                      <span key={num} className={`font-mono px-2 py-1 rounded-md text-sm ${num === prize.winning_number ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                                                          {String(num).padStart(3, '0')}
+                                                      </span>
+                                                  ))}
+                                              </div>
+                                          </div>
+                                          <p className="text-center text-sm text-muted-foreground pt-2">¡Gracias por participar!</p>
+                                      </>
+                                      ) : (
+                                        <p className="text-muted-foreground">
+                                          El número ganador <span className="font-bold font-mono">{String(prize.winning_number).padStart(3, '0')}</span> no fue vendido. El premio queda vacante o se debe volver a sortear según las reglas.
+                                        </p>
+                                      )}
+                                  </CardContent>
+                                </Card>
+                              )}
+                          </div>
+                      ))
+                     )}
+                  </CardContent>
+              </Card>
+          </TabPanel>
+        )}
 
         <TabPanel>
             <Card>
@@ -407,7 +642,7 @@ export default function AdminPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <div className="flex justify-end mb-4">
+                    <div className="flex justify-end items-center gap-4 mb-4">
                         <div className="flex items-center gap-2">
                             <Label htmlFor="stats-seller-filter">Filtrar por vendedor:</Label>
                             <Select value={statsSellerFilter} onValueChange={setStatsSellerFilter}>
@@ -424,6 +659,10 @@ export default function AdminPage() {
                                 </SelectContent>
                             </Select>
                         </div>
+                         <Button onClick={handleExportStatsPDF}>
+                          <FileDown className="mr-2" />
+                          Exportar
+                        </Button>
                     </div>
                     <Table>
                         <TableHeader>
@@ -547,3 +786,5 @@ if (styleSheet) {
     styleSheet.innerText = adminPageStyle;
     document.head.appendChild(styleSheet);
 }
+
+    
