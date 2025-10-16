@@ -15,10 +15,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FileDown, Pencil, Shield, Menu, Home as HomeIcon, Users, BarChart, LogOut, Trophy, Ticket as TicketIcon, Save } from 'lucide-react';
+import { FileDown, Pencil, Shield, Menu, Home as HomeIcon, Users, BarChart, LogOut, Trophy, Ticket as TicketIcon, Save, Download } from 'lucide-react';
 import { getTickets } from '@/app/actions/ticket-actions';
 import { getPrizes, updatePrize, setWinningNumber, getWinnersData } from '@/app/actions/prize-actions';
 import { getSellers, verifySession, clearSessionToken } from '@/app/actions/seller-actions';
+import { generateWinnerImage } from '@/ai/flows/generate-winner-image';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import {
@@ -119,6 +120,7 @@ export default function AdminPage() {
   const [winners, setWinners] = useState<Winner[]>([]);
   const [loadingWinners, setLoadingWinners] = useState(true);
   const [winningNumberInputs, setWinningNumberInputs] = useState<Record<number, string>>({});
+  const [isExportingWinner, setIsExportingWinner] = useState<number | null>(null);
 
 
   const handleLogout = React.useCallback(async (isInvalidSession = false) => {
@@ -348,7 +350,41 @@ export default function AdminPage() {
         toast({ variant: 'destructive', title: 'Error', description: result.message });
     }
     setIsSaving(false);
-};
+  };
+
+  const handleExportWinnerCard = async (winnerData: Winner) => {
+    if (!winnerData.winner_buyer_name || !winnerData.winning_number) return;
+
+    setIsExportingWinner(winnerData.id);
+    try {
+        const result = await generateWinnerImage({
+            prizeOrder: winnerData.prize_order,
+            prizeTitle: winnerData.title,
+            winningNumber: winnerData.winning_number,
+            buyerName: winnerData.winner_buyer_name,
+        });
+
+        if (result.image) {
+            const link = document.createElement("a");
+            link.href = result.image;
+            link.download = `ganador_${winnerData.prize_order}_premio.svg`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } else {
+            throw new Error("La generación de la imagen no devolvió una imagen.");
+        }
+    } catch (error) {
+        console.error("Error exporting winner card:", error);
+        toast({
+            variant: "destructive",
+            title: "Error de Exportación",
+            description: "No se pudo generar la tarjeta del ganador."
+        });
+    } finally {
+        setIsExportingWinner(null);
+    }
+  };
 
 
   if (loading || !isAdmin) {
@@ -526,11 +562,25 @@ export default function AdminPage() {
 
                               {prize.winning_number && (
                                 <Card className={`mt-4 shadow-lg ${prize.winner_buyer_name ? 'border-primary' : 'border-destructive'}`}>
-                                  <CardHeader>
-                                    <CardTitle className={`${prize.winner_buyer_name ? 'text-primary' : 'text-destructive'} flex items-center gap-2`}>
-                                      <Trophy className="w-5 h-5"/>
-                                      {prize.winner_buyer_name ? `Ganador del ${prize.prize_order}° Premio` : `Número no encontrado`}
-                                    </CardTitle>
+                                  <CardHeader className="flex flex-row justify-between items-start">
+                                    <div>
+                                        <CardTitle className={`${prize.winner_buyer_name ? 'text-primary' : 'text-destructive'} flex items-center gap-2`}>
+                                        <Trophy className="w-5 h-5"/>
+                                        {prize.winner_buyer_name ? `Ganador del ${prize.prize_order}° Premio` : `Número no encontrado`}
+                                        </CardTitle>
+                                        <CardDescription className="mt-1">{prize.title}</CardDescription>
+                                    </div>
+                                    {prize.winner_buyer_name && (
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => handleExportWinnerCard(prize)}
+                                            disabled={isExportingWinner === prize.id}
+                                        >
+                                            {isExportingWinner === prize.id ? <Loader2 className="animate-spin" /> : <Download />}
+                                            Exportar
+                                        </Button>
+                                    )}
                                   </CardHeader>
                                   <CardContent>
                                     {prize.winner_buyer_name ? (
