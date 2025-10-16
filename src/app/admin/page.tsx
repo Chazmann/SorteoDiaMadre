@@ -201,7 +201,7 @@ export default function AdminPage() {
         ticket.paymentMethod || 'N/A'
       ]),
     });
-    doc.save('tickets.pdf');
+    doc.save('tickets_generados.pdf');
   };
 
   const handleEditPrize = (prize: Prize) => {
@@ -250,7 +250,7 @@ export default function AdminPage() {
   
   const sortedTickets = [...tickets].sort((a,b) => parseInt(a.id) - parseInt(b.id));
 
-  // Calculate stats
+  // Calculate stats and sort them by ticketsSold in descending order
   const sellerStats = sellers.map(seller => {
       const sellerTickets = tickets.filter(ticket => ticket.sellerName === seller.name);
       return {
@@ -259,11 +259,27 @@ export default function AdminPage() {
           ticketsSold: sellerTickets.length,
           totalCollected: sellerTickets.length * 5000, // Assuming 5000 per ticket
       };
-  });
+  }).sort((a, b) => b.ticketsSold - a.ticketsSold);
   
   const filteredStats = statsSellerFilter === 'todos'
     ? sellerStats
     : sellerStats.filter(stat => stat.name === statsSellerFilter);
+
+  const handleExportStatsPDF = () => {
+    const doc = new jsPDF();
+    const filterText = statsSellerFilter === 'todos' ? 'Todos los Vendedores' : statsSellerFilter;
+    doc.text(`Estadísticas de Venta - Filtro: ${filterText}`, 14, 15);
+    doc.autoTable({
+      startY: 20,
+      head: [['Vendedor', 'Tickets Vendidos', 'Total Recaudado']],
+      body: filteredStats.map(stat => [
+        stat.name,
+        stat.ticketsSold,
+        `$${stat.totalCollected.toLocaleString('es-AR')}`
+      ]),
+    });
+    doc.save('estadisticas_venta.pdf');
+  };
 
 
   if (loading || !isAdmin) {
@@ -407,7 +423,7 @@ export default function AdminPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <div className="flex justify-end mb-4">
+                    <div className="flex justify-end items-center gap-4 mb-4">
                         <div className="flex items-center gap-2">
                             <Label htmlFor="stats-seller-filter">Filtrar por vendedor:</Label>
                             <Select value={statsSellerFilter} onValueChange={setStatsSellerFilter}>
@@ -424,6 +440,10 @@ export default function AdminPage() {
                                 </SelectContent>
                             </Select>
                         </div>
+                         <Button onClick={handleExportStatsPDF}>
+                          <FileDown className="mr-2" />
+                          Exportar
+                        </Button>
                     </div>
                     <Table>
                         <TableHeader>
