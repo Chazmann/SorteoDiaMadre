@@ -304,8 +304,8 @@ export default function AdminPage() {
       return sellerMatch && paymentMatch;
   });
 
-  // Calculate stats based on the filtered tickets
-  const sellerStats = sellers.map(seller => {
+  // Calculate stats for display (only sellers with sales, or the filtered one)
+  const sellerStatsForDisplay = sellers.map(seller => {
       const sellerTickets = filteredTicketsForStats.filter(ticket => ticket.sellerName === seller.name);
       return {
           id: seller.id,
@@ -315,13 +315,23 @@ export default function AdminPage() {
       };
   })
   .filter(seller => {
-    // If a seller is filtered, only show that seller. Otherwise, show sellers with tickets sold.
     if (statsSellerFilter !== 'todos') {
       return seller.name === statsSellerFilter;
     }
     return seller.ticketsSold > 0;
   })
-  .sort((a, b) => b.ticketsSold - a.ticketsSold); // Always sort by tickets sold
+  .sort((a, b) => b.ticketsSold - a.ticketsSold);
+
+  // Calculate stats for PDF export (all sellers)
+  const sellerStatsForExport = sellers.map(seller => {
+    const sellerTickets = filteredTicketsForStats.filter(ticket => ticket.sellerName === seller.name);
+    return {
+        id: seller.id,
+        name: seller.name,
+        ticketsSold: sellerTickets.length,
+        totalCollected: sellerTickets.length * 5000,
+    };
+  }).sort((a, b) => b.ticketsSold - a.ticketsSold);
 
   const totalAmountCollected = filteredTicketsForStats.reduce((sum) => sum + 5000, 0);
 
@@ -338,14 +348,14 @@ export default function AdminPage() {
     doc.autoTable({
       startY: 32,
       head: [['Vendedor', 'Tickets Vendidos', 'Total Recaudado']],
-      body: sellerStats.map(stat => [
+      body: sellerStatsForExport.map(stat => [
         stat.name,
         stat.ticketsSold,
         `$${stat.totalCollected.toLocaleString('es-AR')}`
       ]),
       foot: [[
           'TOTAL FILTRADO',
-          sellerStats.reduce((sum, stat) => sum + stat.ticketsSold, 0),
+          sellerStatsForExport.reduce((sum, stat) => sum + stat.ticketsSold, 0),
           `$${totalAmountCollected.toLocaleString('es-AR')}`
       ]],
       footStyles: { fillColor: [220, 220, 220], textColor: 20, fontStyle: 'bold' }
@@ -638,211 +648,4 @@ export default function AdminPage() {
                                               <div className="flex gap-2 mt-1">
                                                   {prize.winner_ticket_numbers?.map((num) => (
                                                       <span key={num} className={`font-mono px-2 py-1 rounded-md text-sm ${num === prize.winning_number ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                                                          {String(num).padStart(3, '0')}
-                                                      </span>
-                                                  ))}
-                                              </div>
-                                          </div>
-                                          <p className="text-center text-sm text-muted-foreground pt-2">¡Gracias por participar!</p>
-                                      </>
-                                      ) : (
-                                        <p className="text-muted-foreground">
-                                          El número ganador <span className="font-bold font-mono">{String(prize.winning_number).padStart(3, '0')}</span> no fue vendido. El premio queda vacante o se debe volver a sortear según las reglas.
-                                        </p>
-                                      )}
-                                  </CardContent>
-                                </Card>
-                              )}
-                          </div>
-                      ))
-                     )}
-                  </CardContent>
-              </Card>
-          </TabPanel>
-        )}
-
-        <TabPanel>
-            <Card>
-                <CardHeader className="flex-row items-center justify-between">
-                    <div>
-                        <CardTitle className="flex items-center gap-2">
-                            <BarChart className="w-6 h-6" />
-                            Estadísticas de Venta
-                        </CardTitle>
-                        <CardDescription>
-                            Visualiza la cantidad de tickets vendidos y el total recaudado.
-                        </CardDescription>
-                    </div>
-                     <div className="text-right">
-                        <p className="text-sm text-muted-foreground">Total Recaudado (Filtrado)</p>
-                        <p className="text-2xl font-bold text-primary">
-                            ${totalAmountCollected.toLocaleString('es-AR')}
-                        </p>
-                    </div>
-                </CardHeader>
-                <CardContent>
-                    <div className="flex justify-end items-center gap-4 mb-4">
-                        <div className="flex items-center gap-2">
-                            <Label htmlFor="stats-payment-filter" className="flex items-center gap-2">
-                               <CreditCard className="w-4 h-4 text-muted-foreground" />
-                               Medio de pago:
-                            </Label>
-                            <Select value={statsPaymentFilter} onValueChange={setStatsPaymentFilter}>
-                                <SelectTrigger id="stats-payment-filter" className="w-[180px]">
-                                    <SelectValue placeholder="Seleccionar..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="todos">Todos</SelectItem>
-                                    <SelectItem value="Mercado Pago">Mercado Pago</SelectItem>
-                                    <SelectItem value="Efectivo">Efectivo</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <Label htmlFor="stats-seller-filter" className="flex items-center gap-2">
-                              <Users className="w-4 h-4 text-muted-foreground" />
-                              Vendedor:
-                            </Label>
-                            <Select value={statsSellerFilter} onValueChange={setStatsSellerFilter}>
-                                <SelectTrigger id="stats-seller-filter" className="w-[200px]">
-                                    <SelectValue placeholder="Seleccionar..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="todos">Todos los Vendedores</SelectItem>
-                                    {sellers.map((seller) => (
-                                        <SelectItem key={seller.id} value={seller.name}>
-                                            {seller.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                         <Button onClick={handleExportStatsPDF}>
-                          <FileDown className="mr-2" />
-                          Exportar
-                        </Button>
-                    </div>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Vendedor</TableHead>
-                                <TableHead className="text-right">Tickets Vendidos</TableHead>
-                                <TableHead className="text-right">Total Recaudado</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {sellerStats.map(stat => (
-                                <TableRow key={stat.id}>
-                                    <TableCell className="font-semibold flex items-center gap-2">
-                                        <Users className="w-4 h-4 text-muted-foreground" />
-                                        {stat.name}
-                                    </TableCell>
-                                    <TableCell className="text-right font-mono">{stat.ticketsSold}</TableCell>
-                                    <TableCell className="text-right font-mono">${stat.totalCollected.toLocaleString('es-AR')}</TableCell>
-                                </TableRow>
-                            ))}
-                             {sellerStats.length === 0 && (
-                                <TableRow>
-                                    <TableCell colSpan={3} className="text-center text-muted-foreground">
-                                        No hay datos para mostrar con el filtro seleccionado.
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
-        </TabPanel>
-      </Tabs>
-
-      {editingPrize && isAdmin && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-            <Card className="w-full max-w-lg">
-                <CardHeader>
-                    <CardTitle>Editar Premio</CardTitle>
-                    <CardDescription>Modifica la información del premio seleccionado.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                     <div>
-                        <label className="text-sm font-medium">Título del Premio</label>
-                        <Input 
-                            value={editingPrize.title} 
-                            onChange={(e) => setEditingPrize({...editingPrize, title: e.target.value})}
-                        />
-                     </div>
-                     <div>
-                        <label className="text-sm font-medium">Imagen del Premio</label>
-                        <Input 
-                            type="file"
-                            accept="image/*"
-                            onChange={handleFileChange}
-                            className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
-                        />
-                     </div>
-                     {previewImage && (
-                        <div>
-                          <p className="text-sm font-medium mb-2">Vista Previa:</p>
-                          <img src={previewImage} alt="Vista previa" className="rounded-md w-full h-auto object-cover aspect-video"/>
-                        </div>
-                     )}
-                     <div className="flex justify-end gap-2">
-                        <Button variant="outline" onClick={() => setEditingPrize(null)}>Cancelar</Button>
-                        <Button onClick={handleSaveChanges} disabled={isSaving}>
-                          {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                          Guardar Cambios
-                        </Button>
-                     </div>
-                </CardContent>
-            </Card>
-        </div>
-      )}
-    </div>
-  );
-}
-
-const adminPageStyle = `
-  .react-tabs__tab-list {
-    border-bottom: 1px solid #aaa;
-    margin: 0 0 10px;
-    padding: 0;
-  }
-
-  .react-tabs__tab {
-    display: inline-block;
-    border: 1px solid transparent;
-    border-bottom: none;
-    bottom: -1px;
-    position: relative;
-    list-style: none;
-    padding: 6px 12px;
-    cursor: pointer;
-  }
-
-  .react-tabs__tab--selected {
-    background: #fff;
-    border-color: #aaa;
-    color: black;
-    border-radius: 5px 5px 0 0;
-  }
-
-  .dark .react-tabs__tab--selected {
-     background: hsl(var(--card));
-     border-color: hsl(var(--border));
-     color: hsl(var(--card-foreground));
-  }
-
-  .react-tabs__tab:focus {
-    box-shadow: 0 0 5px hsl(var(--ring));
-    border-color: hsl(var(--ring));
-    outline: none;
-  }
-`;
-
-const styleSheet = typeof document !== 'undefined' ? document.createElement("style") : null;
-if (styleSheet) {
-    styleSheet.type = "text/css";
-    styleSheet.innerText = adminPageStyle;
-    document.head.appendChild(styleSheet);
-}
-
-    
+                                                          {String(num).padStart(3, '0')
