@@ -443,7 +443,7 @@ export default function AdminPage() {
         <div className="container mx-auto p-4 md:p-8 flex justify-center items-center h-screen">
             <Loader2 className="w-12 h-12 animate-spin text-primary" />
         </div>
-    )
+    );
   }
 
   return (
@@ -648,4 +648,175 @@ export default function AdminPage() {
                                               <div className="flex gap-2 mt-1">
                                                   {prize.winner_ticket_numbers?.map((num) => (
                                                       <span key={num} className={`font-mono px-2 py-1 rounded-md text-sm ${num === prize.winning_number ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                                                          {String(num).padStart(3, '0')
+                                                          {String(num).padStart(3, '0')}
+                                                      </span>
+                                                  ))}
+                                              </div>
+                                          </div>
+                                          <Separator />
+                                          <p className="text-center text-muted-foreground text-sm">¡Gracias por participar!</p>
+                                      </>
+                                    ) : (
+                                        <div className="text-center text-destructive-foreground p-4 bg-destructive rounded-md">
+                                            No se encontró ningún ticket que contenga el número {String(prize.winning_number).padStart(3, '0')}.
+                                        </div>
+                                    )}
+                                  </CardContent>
+                                </Card>
+                              )}
+                          </div>
+                      ))
+                     )}
+                  </CardContent>
+              </Card>
+          </TabPanel>
+        )}
+
+        <TabPanel>
+            <Card>
+              <CardHeader className="flex-row items-center justify-between">
+                <div className="space-y-1">
+                  <CardTitle>Estadísticas de Venta</CardTitle>
+                  <CardDescription>
+                    Resumen de ventas por vendedor.
+                  </CardDescription>
+                </div>
+                <div className="text-right">
+                    <p className="text-sm text-muted-foreground">Total Recaudado (Filtrado)</p>
+                    <p className="text-2xl font-bold text-primary">
+                        ${totalAmountCollected.toLocaleString('es-AR')}
+                    </p>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6 p-4 bg-muted/50 rounded-lg border">
+                  <div className="flex flex-wrap items-center gap-4">
+                      <div className="flex items-center gap-2">
+                          <Label htmlFor="payment-filter" className="flex items-center gap-2 text-muted-foreground">
+                              <CreditCard className="w-4 h-4" />
+                              Medio de Pago:
+                          </Label>
+                          <Select value={statsPaymentFilter} onValueChange={setStatsPaymentFilter}>
+                              <SelectTrigger id="payment-filter" className="w-[180px]">
+                                  <SelectValue placeholder="Seleccionar..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                  <SelectItem value="todos">Todos</SelectItem>
+                                  <SelectItem value="Mercado Pago">Mercado Pago</SelectItem>
+                                  <SelectItem value="Efectivo">Efectivo</SelectItem>
+                              </SelectContent>
+                          </Select>
+                      </div>
+                      <div className="flex items-center gap-2">
+                          <Label htmlFor="seller-filter" className="flex items-center gap-2 text-muted-foreground">
+                              <Users className="w-4 h-4" />
+                              Vendedor:
+                          </Label>
+                          <Select value={statsSellerFilter} onValueChange={setStatsSellerFilter}>
+                              <SelectTrigger id="seller-filter" className="w-[180px]">
+                                  <SelectValue placeholder="Seleccionar..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                  <SelectItem value="todos">Todos</SelectItem>
+                                  {sellers.map((seller) => (
+                                      <SelectItem key={seller.id} value={seller.name}>
+                                          {seller.name}
+                                      </SelectItem>
+                                  ))}
+                              </SelectContent>
+                          </Select>
+                      </div>
+                  </div>
+
+                  <Button onClick={handleExportStatsPDF}>
+                      <FileDown className="mr-2" />
+                      Exportar a PDF
+                  </Button>
+                </div>
+
+                <div className="overflow-x-auto">
+                    <Table>
+                    <TableHeader>
+                        <TableRow>
+                        <TableHead>Vendedor</TableHead>
+                        <TableHead className="text-right">Tickets Vendidos</TableHead>
+                        <TableHead className="text-right">Total Recaudado</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {sellerStatsForDisplay.length > 0 ? sellerStatsForDisplay.map(stat => (
+                        <TableRow key={stat.id}>
+                            <TableCell className="font-semibold">{stat.name}</TableCell>
+                            <TableCell className="text-right font-mono">{stat.ticketsSold}</TableCell>
+                            <TableCell className="text-right font-mono">${stat.totalCollected.toLocaleString('es-AR')}</TableCell>
+                        </TableRow>
+                        )) : (
+                          <TableRow>
+                            <TableCell colSpan={3} className="text-center text-muted-foreground">
+                              No hay ventas que coincidan con los filtros seleccionados.
+                            </TableCell>
+                          </TableRow>
+                        )}
+                    </TableBody>
+                    </Table>
+                </div>
+              </CardContent>
+            </Card>
+        </TabPanel>
+      </Tabs>
+      
+      <AlertDialog open={!!editingPrize} onOpenChange={(isOpen) => !isOpen && setEditingPrize(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Editar Premio {editingPrize?.prize_order}</AlertDialogTitle>
+            <AlertDialogDescription>
+              Modifica la información del premio. La imagen puede ser una URL o puedes subir un archivo.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {editingPrize && (
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="prize-title">Título</Label>
+                <Input
+                  id="prize-title"
+                  value={editingPrize.title}
+                  onChange={(e) => setEditingPrize({ ...editingPrize, title: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="prize-image-url">URL de la Imagen</Label>
+                <Input
+                  id="prize-image-url"
+                  value={editingPrize.image_url}
+                  onChange={(e) => {
+                      setEditingPrize({ ...editingPrize, image_url: e.target.value });
+                      setPreviewImage(e.target.value);
+                      setSelectedFile(null);
+                  }}
+                />
+              </div>
+              <div className="text-center text-sm text-muted-foreground">O</div>
+              <div>
+                <Label htmlFor="prize-image-file">Subir Imagen</Label>
+                <Input id="prize-image-file" type="file" accept="image/*" onChange={handleFileChange} />
+              </div>
+              {previewImage && (
+                <div className="mt-4">
+                  <p className="text-sm text-muted-foreground mb-2">Vista Previa:</p>
+                  <img src={previewImage} alt="Preview" className="rounded-md object-contain max-h-40 w-auto mx-auto" />
+                </div>
+              )}
+            </div>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleSaveChanges} disabled={isSaving}>
+              {isSaving ? <Loader2 className="animate-spin" /> : "Guardar Cambios"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+    </div>
+  );
+}
